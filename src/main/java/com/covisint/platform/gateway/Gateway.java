@@ -6,7 +6,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class Gateway {
 
-    public static void main(String[] args) {
-        SpringApplication.run(Gateway.class, args);
+    static {
+        System.loadLibrary("alljoyn_java");
     }
+    
+	public static void main(String[] args) {
+		SpringApplication.run(Gateway.class, args);
+	}
+
 }
