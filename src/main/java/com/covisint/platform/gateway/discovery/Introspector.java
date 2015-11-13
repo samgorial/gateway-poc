@@ -38,7 +38,7 @@ public class Introspector {
 			}
 
 			if (!enFound) {
-				LOG.info("Introspect language '{}' not available.", PREFERRED_LANG);
+				LOG.info("Introspect language '{}' not available.  Using default.", PREFERRED_LANG);
 			}
 
 			String xml = input.IntrospectWithDescription(PREFERRED_LANG);

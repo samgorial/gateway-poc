@@ -36,7 +36,7 @@ public class DefaultAboutListener implements AboutListener {
 	private Introspector introspector;
 
 	@Autowired
-	private DiscoveryHandler discoveryHandler;
+	private DiscoveryService discoveryService;
 
 	@PostConstruct
 	public void init() {
@@ -46,6 +46,8 @@ public class DefaultAboutListener implements AboutListener {
 	public void announced(String busName, int version, short port, AboutObjectDescription[] aods,
 			Map<String, Variant> aboutData) {
 
+		LOG.info("Announcement received: BusName[{}], Version[{}], SessionPort[{}]", busName, version, port);
+		
 		Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
 
 		BusAttachment aboutBusAttachment = bus.getAboutBusAttachment();
@@ -59,7 +61,7 @@ public class DefaultAboutListener implements AboutListener {
 			return;
 		}
 
-		LOG.debug("Successfully joined session with sessionId %d", sessionId.value);
+		LOG.debug("Successfully joined About bus session with sessionId {}", sessionId.value);
 
 		AboutProxy aboutProxy = new AboutProxy(aboutBusAttachment, busName, sessionId.value);
 
@@ -77,7 +79,7 @@ public class DefaultAboutListener implements AboutListener {
 
 					IntrospectResult introspectResult = introspector.doIntrospection(introspectable);
 
-					discoveryHandler.handleAsync(introspectResult);
+					discoveryService.handleAsync(introspectResult);
 
 				}
 			}
@@ -91,12 +93,9 @@ public class DefaultAboutListener implements AboutListener {
 	}
 
 	private void logSummary(String busName, int version, short port, AboutObjectDescription[] aods,
-			Map<String, Variant> aboutData) {
+			Map<String, Variant> aboutData) throws BusException {
 
-		LOG.info("Announcement received: BusName[{}], Version[{}], SessionPort[{}], AboutObjectDescription: {", busName,
-				version, port);
-
-		StringBuilder sb = new StringBuilder();
+		StringBuilder sb = new StringBuilder("\nAboutObjectDescription: {\n");
 
 		if (aods != null) {
 			for (AboutObjectDescription aod : aods) {
@@ -105,35 +104,33 @@ public class DefaultAboutListener implements AboutListener {
 					sb.append("\t\t").append(iface).append("\n");
 				}
 			}
-			sb.append("\n");
+			sb.append("\n}");
 		}
 
 		LOG.info(sb.toString());
 
-		LOG.info("AboutData variants: ");
+		sb = new StringBuilder("\n");
 
-		try {
-			for (Map.Entry<String, Variant> entry : aboutData.entrySet()) {
-				System.out.print("\tField: " + entry.getKey() + " = ");
+		for (Map.Entry<String, Variant> entry : aboutData.entrySet()) {
+			sb.append("\t").append(entry.getKey()).append(": ");
 
-				if (entry.getKey().equals("AppId")) {
-					byte[] appId = entry.getValue().getObject(byte[].class);
-					for (byte b : appId) {
-						System.out.print(String.format("%02X", b));
-					}
-				} else if (entry.getKey().equals("SupportedLanguages")) {
-					String[] supportedLanguages = entry.getValue().getObject(String[].class);
-					for (String s : supportedLanguages) {
-						System.out.print(s + " ");
-					}
-				} else {
-					System.out.print(entry.getValue().getObject(String.class));
+			if (entry.getKey().equals("AppId")) {
+				byte[] appId = entry.getValue().getObject(byte[].class);
+				for (byte b : appId) {
+					sb.append(String.format("%02X", b));
 				}
-				System.out.print("\n");
+			} else if (entry.getKey().equals("SupportedLanguages")) {
+				String[] supportedLanguages = entry.getValue().getObject(String[].class);
+				for (String s : supportedLanguages) {
+					sb.append(s).append(" ");
+				}
+			} else {
+				sb.append(entry.getValue().getObject(String.class));
 			}
-		} catch (BusException e1) {
-			e1.printStackTrace();
+			sb.append("\n");
 		}
+		
+		LOG.info("AboutData variants for {} \n{}", busName, sb);
 	}
 
 }

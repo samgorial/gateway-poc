@@ -5,6 +5,6 @@ import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
 
 public interface DeviceProvisionerDao {
 
-	Device provisionNewDevice(AJInterface intf);
-	
+	Device provisionNewDevice(AJInterface intf) throws InterfaceBlacklistedException;
+
 }
