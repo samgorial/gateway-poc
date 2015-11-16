@@ -1,48 +1,35 @@
 package com.covisint.platform.gateway;
 
+import java.util.Arrays;
+
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.annotation.Resource;
 
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 @Component
 public class GatewayBus {
+
+	private static final String AJ_DEFAULT_BUS_ADDRESS = "org.alljoyn.bus.address";
 
 	private static final Logger LOG = LoggerFactory.getLogger(GatewayBus.class);
 
 	@Value("${watched.interfaces}")
 	private String[] interfaces;
 
-	@Resource
-	private BusAttachment centralBusAttachment;
-
-	@Resource
-	private BusAttachment aboutBusAttachment;
+	@Autowired
+	private BusAttachment attachment;
 
 	@PostConstruct
 	public void init() {
-		startListening(aboutBusAttachment, "about");
-		startListening(centralBusAttachment, "central");
-	}
-
-	@PreDestroy
-	public void shutdown() {
-		centralBusAttachment.disconnect();
-		aboutBusAttachment.disconnect();
-	}
-
-	private void startListening(BusAttachment attachment, String busType) {
-
-		LOG.info("Starting to listen for implemented interfaces {} on {} bus.", interfaces, busType);
+		LOG.info("Starting to listen for implemented interfaces {}.", Arrays.deepToString(interfaces));
 
 		Status status = attachment.whoImplements(interfaces);
 
@@ -52,8 +39,13 @@ public class GatewayBus {
 		}
 	}
 
+	@PreDestroy
+	public void shutdown() {
+		attachment.disconnect();
+		LOG.info("Disconnected the from the bus.");
+	}
+
 	@Bean
-	@Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	private BusAttachment createBusAttachment(@Value("${agent.name}") String applicationName) {
 
 		BusAttachment bus = new BusAttachment(applicationName, BusAttachment.RemoteMessage.Receive);
@@ -65,17 +57,13 @@ public class GatewayBus {
 			throw new RuntimeException("Could not create bus attachment: " + status.toString());
 		}
 
-		LOG.info("Created bus attachment on {}", System.getProperty("org.alljoyn.bus.address"));
+		LOG.info("Created bus attachment on {}", System.getProperty(AJ_DEFAULT_BUS_ADDRESS));
 
 		return bus;
 	}
 
-	public BusAttachment getAboutBusAttachment() {
-		return aboutBusAttachment;
-	}
-
-	public BusAttachment getCentralBusAttachment() {
-		return centralBusAttachment;
+	public BusAttachment getBusAttachment() {
+		return attachment;
 	}
 
 }

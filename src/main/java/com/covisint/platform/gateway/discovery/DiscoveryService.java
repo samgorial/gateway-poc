@@ -14,11 +14,12 @@ import org.springframework.stereotype.Component;
 
 import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
-import com.covisint.platform.gateway.signal.PiSignalHandler;
 import com.covisint.platform.gateway.store.DeviceCatalogDao;
 import com.covisint.platform.gateway.store.DeviceProvisionerDao;
 import com.covisint.platform.gateway.store.InterfaceBlacklistedException;
 import com.google.common.base.Stopwatch;
+
+import mock.PiSignalHandler;
 
 @Component
 public class DiscoveryService {
@@ -37,7 +38,7 @@ public class DiscoveryService {
 	@Autowired
 	private DeviceProvisionerDao provisioner;
 
-	void handleAsync(final IntrospectResult metadata) {
+	public void handleAsync(final IntrospectResult metadata) {
 
 		LOG.debug("Asynchronously processing AJ metadata containing {} interfaces.", metadata.getInterfaces().size());
 
