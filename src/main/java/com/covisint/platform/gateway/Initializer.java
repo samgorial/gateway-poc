@@ -23,22 +23,23 @@ public class Initializer {
 
 	@Autowired
 	private DefaultAboutListener aboutListener;
-	
+
 	@Autowired
 	private DefaultBusListener signalListener;
-	
+
 	@PostConstruct
 	public void init() {
 		bus.getBusAttachment().registerAboutListener(aboutListener);
-		
+
 		bus.getBusAttachment().registerBusListener(signalListener);
 		bus.getBusAttachment().registerSignalHandlers(new PiSignalHandler());
 
 		Status status = bus.getBusAttachment().findAdvertisedName(advertisedNamePrefix);
 
 		if (status != Status.OK) {
-			return;
+			throw new ExceptionInInitializerError(status.toString());
 		}
+		
 	}
-	
+
 }

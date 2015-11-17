@@ -10,26 +10,35 @@ import org.alljoyn.bus.AboutProxy;
 import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.ProxyBusObject;
+import org.alljoyn.bus.SessionListener;
 import org.alljoyn.bus.Status;
 import org.alljoyn.bus.Variant;
 import org.alljoyn.bus.ifaces.AllSeenIntrospectable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.covisint.platform.gateway.GatewayBus;
 import com.covisint.platform.gateway.discovery.DiscoveryService;
 import com.covisint.platform.gateway.discovery.IntrospectResult;
 import com.covisint.platform.gateway.discovery.Introspector;
-
-import mock.Globals;
-import mock.Globals.SessionInfo;
+import com.covisint.platform.gateway.repository.SessionEndpoint;
+import com.covisint.platform.gateway.repository.SessionInfo;
+import com.covisint.platform.gateway.repository.SessionInfo.SessionType;
+import com.covisint.platform.gateway.repository.SessionRepository;
 
 @Component
 public class DefaultAboutListener implements AboutListener {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultAboutListener.class);
+
+	@Value("${mock.device.id}")
+	private String mockDeviceId;
+
+	@Autowired
+	private SessionListener sessionListener;
 
 	@Autowired
 	private GatewayBus bus;
@@ -40,6 +49,9 @@ public class DefaultAboutListener implements AboutListener {
 	@Autowired
 	private DiscoveryService discoveryService;
 
+	@Autowired
+	private SessionRepository sessionRepository;
+
 	public void announced(String busName, int version, short port, AboutObjectDescription[] aods,
 			Map<String, Variant> aboutData) {
 
@@ -47,18 +59,27 @@ public class DefaultAboutListener implements AboutListener {
 
 		bus.getBusAttachment().enableConcurrentCallbacks();
 
-		Mutable.IntegerValue sessionId = new Mutable.IntegerValue();
+		Mutable.IntegerValue sessionIdWrapper = new Mutable.IntegerValue();
 
-		Status status = bus.getBusAttachment().joinSession(busName, port, sessionId, getDefaultSessionOpts(),
-				new DefaultSessionListener());
+		Status status = bus.getBusAttachment().joinSession(busName, port, sessionIdWrapper, getDefaultSessionOpts(),
+				sessionListener);
 
 		if (status != Status.OK) {
 			return;
 		}
 
-		LOG.debug("Successfully joined About bus session with sessionId {}", sessionId.value);
-		
-		AboutProxy aboutProxy = new AboutProxy(bus.getBusAttachment(), busName, sessionId.value);
+		int sessionId = sessionIdWrapper.value;
+
+		LOG.debug("Successfully joined About bus session with sessionId {}", sessionId);
+
+		AboutProxy aboutProxy = new AboutProxy(bus.getBusAttachment(), busName, sessionId);
+
+		SessionInfo sessionInfo = new SessionInfo();
+		sessionInfo.setSessionId(sessionId);
+		sessionInfo.setBusName(busName);
+		sessionInfo.setPort(port);
+		sessionInfo.setSessionType(SessionType.ABOUT);
+		sessionInfo.setSessionOpts(getDefaultSessionOpts());
 
 		try {
 
@@ -67,18 +88,14 @@ public class DefaultAboutListener implements AboutListener {
 			if (aod != null) {
 				for (AboutObjectDescription o : aod) {
 
-					ProxyBusObject proxy = bus.getBusAttachment().getProxyBusObject(busName, o.path, sessionId.value,
+					SessionEndpoint endpoint = new SessionEndpoint();
+					endpoint.setParentSession(sessionInfo);
+					endpoint.setIntf(o.interfaces[0]); // FIXME persist all
+					endpoint.setPath(o.path);
+					sessionInfo.getEndpoints().add(endpoint);
+
+					ProxyBusObject proxy = bus.getBusAttachment().getProxyBusObject(busName, o.path, sessionId,
 							new Class<?>[] { AllSeenIntrospectable.class });
-
-					SessionInfo sessionInfo = new SessionInfo();
-					sessionInfo.sessionId = sessionId.value;
-					sessionInfo.busName = busName;
-					sessionInfo.namePrefix = o.interfaces[0];
-					sessionInfo.port = port;
-					sessionInfo.path = o.path;
-					sessionInfo.sessionOpts = getDefaultSessionOpts();
-
-					Globals.addSession(sessionInfo);
 
 					AllSeenIntrospectable introspectable = proxy.getInterface(AllSeenIntrospectable.class);
 
@@ -89,6 +106,11 @@ public class DefaultAboutListener implements AboutListener {
 				}
 			}
 
+			sessionRepository.createSession(sessionInfo);
+
+//			 FIXME temporary
+//			setMockDeviceAssociations(sessionInfo);
+
 			logSummary(busName, aboutProxy.getVersion(), port, aod, aboutProxy.getAboutData("en"));
 
 		} catch (BusException e) {
@@ -96,6 +118,12 @@ public class DefaultAboutListener implements AboutListener {
 		}
 
 	}
+
+//	private void setMockDeviceAssociations(SessionInfo sessionInfo) {
+//		for (SessionEndpoint endpoint : sessionInfo.getEndpoints()) {
+//			sessionRepository.setDeviceSession(mockDeviceId, sessionInfo.getSessionId(), endpoint.getIntf());
+//		}
+//	}
 
 	private void logSummary(String busName, int version, short port, AboutObjectDescription[] aods,
 			Map<String, Variant> aboutData) throws BusException {

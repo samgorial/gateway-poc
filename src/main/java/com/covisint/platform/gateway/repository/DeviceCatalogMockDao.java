@@ -1,4 +1,4 @@
-package com.covisint.platform.gateway.store;
+package com.covisint.platform.gateway.repository;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -7,7 +7,7 @@ import org.alljoyn.bus.annotation.BusMethod;
 import org.alljoyn.bus.annotation.BusProperty;
 import org.alljoyn.bus.annotation.BusSignal;
 
-@BusInterface(name = "com.covisint.platform.devices.nest", announced = "true")
+@BusInterface(name = "com.covisint.platform.devices.pi", announced = "true")
 public interface PiBusInterface extends BusObject {
 
 	@BusProperty

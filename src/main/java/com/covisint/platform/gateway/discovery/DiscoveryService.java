@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
 
 import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
-import com.covisint.platform.gateway.store.DeviceCatalogDao;
-import com.covisint.platform.gateway.store.DeviceProvisionerDao;
-import com.covisint.platform.gateway.store.InterfaceBlacklistedException;
+import com.covisint.platform.gateway.repository.DeviceCatalogDao;
+import com.covisint.platform.gateway.repository.DeviceProvisionerDao;
+import com.covisint.platform.gateway.repository.InterfaceBlacklistedException;
 import com.google.common.base.Stopwatch;
 
 import mock.PiSignalHandler;

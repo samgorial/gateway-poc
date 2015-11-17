@@ -25,7 +25,7 @@ public class SignalService {
 
 	private static class MyBusListener extends BusListener {
 		public void nameOwnerChanged(String busName, String previousOwner, String newOwner) {
-			if ("com.my.well.known.name".equals(busName)) {
+			if ("com.covisint.platform.devices.pi".equals(busName)) {
 				System.out
 						.println("BusAttachement.nameOwnerChanged(" + busName + ", " + previousOwner + ", " + newOwner);
 			}
@@ -88,19 +88,19 @@ public class SignalService {
 		System.out.println("BusAttachment.bindSessionPort successful");
 
 		int flags = 0; // do not use any request name flags
-		status = mBus.requestName("com.covisint.my.well.known.name", flags);
+		status = mBus.requestName("com.covisint.platform.devices.pi", flags);
 		if (status != Status.OK) {
 			return;
 		}
-		System.out.println("BusAttachment.request 'com.covisint.my.well.known.name' successful");
+		System.out.println("BusAttachment.request 'com.covisint.platform.devices.pi' successful");
 
-		status = mBus.advertiseName("com.covisint.my.well.known.name", SessionOpts.TRANSPORT_ANY);
+		status = mBus.advertiseName("com.covisint.platform.devices.pi", SessionOpts.TRANSPORT_ANY);
 		if (status != Status.OK) {
 			System.out.println("Status = " + status);
-			mBus.releaseName("com.covisint.my.well.known.name");
+			mBus.releaseName("com.covisint.platform.devices.pi");
 			return;
 		}
-		System.out.println("BusAttachment.advertiseName 'com.covisint.my.well.known.name' successful");
+		System.out.println("BusAttachment.advertiseName 'com.covisint.platform.devices.pi' successful");
 
 		try {
 			while (!mSessionEstablished) {

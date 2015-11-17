@@ -31,7 +31,8 @@ public class GatewayHttpService {
 
 	@RequestMapping(value = "/command", method = RequestMethod.POST)
 	public void sendCommand(@RequestBody JsonStructure input) {
-		LOG.debug("Processing command: {}", input);
+
+		LOG.debug("Processing command: \n{}", input);
 
 		JsonObject command = validate(input);
 
@@ -50,9 +51,30 @@ public class GatewayHttpService {
 			throw new RuntimeException("Expected JSON object but was " + input.getValueType());
 		}
 
-		// TODO finish.
+		JsonObject jsonObject = (JsonObject) input;
 
-		return (JsonObject) input;
+		checkPropertyExists(jsonObject, "messageId");
+		checkPropertyExists(jsonObject, "deviceId");
+		checkPropertyExists(jsonObject, "commandTemplateId");
+		checkPropertyExists(jsonObject, "message");
+
+		return jsonObject;
+	}
+
+	private static void checkPropertyExists(JsonObject json, String propertyName) {
+		if (!json.containsKey(propertyName)) {
+			throw new RuntimeException("Missing property " + propertyName);
+		}
+
+		if (json.get(propertyName).getValueType() != ValueType.STRING) {
+			throw new RuntimeException("Expected property " + propertyName + " to be a string");
+		}
+
+		String value = json.getString(propertyName).trim();
+
+		if (value == null || value.length() == 0) {
+			throw new RuntimeException(propertyName + " was empty.");
+		}
 	}
 
 }
