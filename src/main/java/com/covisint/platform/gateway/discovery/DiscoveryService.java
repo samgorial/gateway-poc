@@ -2,8 +2,6 @@ package com.covisint.platform.gateway.discovery;
 
 import java.util.concurrent.Future;
 
-import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,8 +17,6 @@ import com.covisint.platform.gateway.repository.DeviceProvisionerDao;
 import com.covisint.platform.gateway.repository.InterfaceBlacklistedException;
 import com.google.common.base.Stopwatch;
 
-import mock.PiSignalHandler;
-
 @Component
 public class DiscoveryService {
 
@@ -28,9 +24,6 @@ public class DiscoveryService {
 
 	@Value("${alljoyn.advertised_name_pfx}")
 	private String advertisedNamePrefix;
-
-	@Autowired
-	private BusAttachment bus;
 
 	@Autowired
 	private DeviceCatalogDao catalog;
@@ -73,9 +66,6 @@ public class DiscoveryService {
 
 			LOG.debug("Provisioned new device: \n{}", newDevice);
 
-			registerSignalHandler(new PiSignalHandler()); // TODO FIXME
-															// hardcoded for now
-
 			// bind methods
 
 		} else {
@@ -87,24 +77,6 @@ public class DiscoveryService {
 		LOG.debug("Processing interface {} took {}", intf.getName(), clock);
 
 		return new AsyncResult<Boolean>(known);
-	}
-
-	private void registerSignalHandler(Object signalHandler) {
-
-		Status status = bus.registerSignalHandlers(signalHandler);
-
-		if (status != Status.OK) {
-			LOG.error("Could not register signal handler with bus! {}", status);
-			return;
-		}
-
-		status = bus.findAdvertisedName(advertisedNamePrefix);
-
-		if (status != Status.OK) {
-			LOG.error("Could not find advertised name! {}", status);
-			return;
-		}
-
 	}
 
 }

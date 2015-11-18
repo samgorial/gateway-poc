@@ -1,6 +1,7 @@
 package com.covisint.platform.gateway.bind;
 
 import java.io.ByteArrayInputStream;
+import java.util.Date;
 import java.util.List;
 
 import javax.json.Json;
@@ -14,12 +15,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.covisint.mock.PiBusInterface;
+import com.covisint.mock.PingInterface;
+import com.covisint.mock.SayHelloInterface;
 import com.covisint.platform.gateway.GatewayBus;
-import com.covisint.platform.gateway.repository.SessionEndpoint;
-import com.covisint.platform.gateway.repository.SessionRepository;
+import com.covisint.platform.gateway.repository.session.AboutSession;
+import com.covisint.platform.gateway.repository.session.SessionEndpoint;
+import com.covisint.platform.gateway.repository.session.SessionRepository;
 import com.google.api.client.util.Base64;
-
-import mock.PiBusInterface;
 
 @Component
 public class HardcodedCommandDelegate implements CommandDelegate {
@@ -48,8 +51,6 @@ public class HardcodedCommandDelegate implements CommandDelegate {
 
 		LOG.debug("Command args: {}", commandArgs);
 
-		// SessionInfo session = sessionRepository.getDeviceSession(deviceId);
-
 		List<SessionEndpoint> endpoints = sessionRepository.getEndpointsByDevice(deviceId);
 
 		if (endpoints == null || endpoints.isEmpty()) {
@@ -60,27 +61,35 @@ public class HardcodedCommandDelegate implements CommandDelegate {
 			LOG.warn("Found {} session endpoints for device {} but only expected 1.", endpoints.size(), deviceId);
 		}
 
+		// FIXME not this way
 		SessionEndpoint endpoint = endpoints.get(0);
 
-		// LOG.debug("Session id {} found for device {}",
-		// session.getSessionId(), deviceId);
+		AboutSession session = endpoint.getParentSession();
+		String busName = session.getBusName();
+		int sessionId = session.getSessionId();
 
-		ProxyBusObject proxy = bus.getBusAttachment().getProxyBusObject(endpoint.getIntf(), endpoint.getPath(),
-				endpoint.getParentSession().getSessionId(), new Class<?>[] { PiBusInterface.class });
+		LOG.debug("Session id {} found for device {}", sessionId, deviceId);
 
-		PiBusInterface service = proxy.getInterface(PiBusInterface.class);
+		ProxyBusObject proxy = bus.getBusAttachment().getProxyBusObject(busName, endpoint.getPath(), sessionId,
+				new Class<?>[] { PiBusInterface.class, PingInterface.class, SayHelloInterface.class });
 
 		try {
 
 			switch (commandTemplateId) {
 			case "ping":
-				service.ping("" + System.currentTimeMillis());
+				proxy.getInterface(PingInterface.class).ping(new Date().toString());
+				break;
+			case "hello":
+				if (!commandArgs.containsKey("name")) {
+					throw new IllegalArgumentException("Expected parameter 'name'");
+				}
+				proxy.getInterface(SayHelloInterface.class).hello(commandArgs.getString("name"));
 				break;
 			case "turn_on_buzzer":
-				service.turnOnBuzzer();
+				proxy.getInterface(PiBusInterface.class).turnOnBuzzer();
 				break;
 			case "turn_off_buzzer":
-				service.turnOffBuzzer();
+				proxy.getInterface(PiBusInterface.class).turnOffBuzzer();
 				break;
 			default:
 				throw new UnsupportedOperationException(commandTemplateId);

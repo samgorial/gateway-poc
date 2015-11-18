@@ -11,7 +11,7 @@ public class AllJoynSupport {
 	public static final SessionOpts getDefaultSessionOpts() {
 		SessionOpts opts = new SessionOpts();
 		opts.traffic = SessionOpts.TRAFFIC_MESSAGES;
-		opts.isMultipoint = true;
+		opts.isMultipoint = false;
 		opts.proximity = SessionOpts.PROXIMITY_ANY;
 		opts.transports = SessionOpts.TRANSPORT_IP;
 		return opts;
@@ -32,7 +32,6 @@ public class AllJoynSupport {
 		checkJsonPropertyExists(jsonObject, "messageId");
 		checkJsonPropertyExists(jsonObject, "deviceId");
 		checkJsonPropertyExists(jsonObject, "commandTemplateId");
-		checkJsonPropertyExists(jsonObject, "message");
 
 		return jsonObject;
 	}

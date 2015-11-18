@@ -5,6 +5,7 @@ import java.util.Arrays;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.alljoyn.bus.AboutListener;
 import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.Status;
 import org.slf4j.Logger;
@@ -13,6 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
+
+import com.covisint.mock.SignalHandler;
+import com.covisint.platform.gateway.repository.session.SessionRepository;
 
 @Component
 public class GatewayBus {
@@ -25,18 +29,17 @@ public class GatewayBus {
 	private String[] interfaces;
 
 	@Autowired
+	private AboutListener aboutListener;
+
+	@Autowired
 	private BusAttachment attachment;
+
+	@Autowired
+	private SessionRepository sessionRepository;
 
 	@PostConstruct
 	public void init() {
-		LOG.info("Starting to listen for implemented interfaces {}.", Arrays.deepToString(interfaces));
-
-		Status status = attachment.whoImplements(interfaces);
-
-		if (status != Status.OK) {
-			LOG.error("Could not call who-implements method on about bus attachment: {}", status);
-			throw new RuntimeException("Could not call who-implements method: " + status.toString());
-		}
+		sessionRepository.clearAll();
 	}
 
 	@PreDestroy
@@ -58,6 +61,21 @@ public class GatewayBus {
 		}
 
 		LOG.info("Created bus attachment on {}", System.getProperty(AJ_DEFAULT_BUS_ADDRESS));
+
+		// Register the About announcement listener.
+		bus.registerAboutListener(aboutListener);
+		
+		// TODO can't do it like this
+		bus.registerSignalHandlers(SignalHandler.INSTANCE);
+
+		LOG.info("Target interfaces passed to who-implements call: {}", Arrays.deepToString(interfaces));
+		
+		status = bus.whoImplements(interfaces);
+
+		if (status != Status.OK) {
+			LOG.error("Could not call who-implements method on about bus attachment: {}", status);
+			throw new RuntimeException("Could not call who-implements method: " + status.toString());
+		}
 
 		return bus;
 	}
