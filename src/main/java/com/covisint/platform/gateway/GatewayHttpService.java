@@ -1,10 +1,14 @@
 package com.covisint.platform.gateway;
 
+import static com.covisint.platform.gateway.util.AllJoynSupport.validateCommand;
+
+import java.io.StringReader;
 import java.util.Date;
 
+import javax.json.Json;
 import javax.json.JsonObject;
+import javax.json.JsonReader;
 import javax.json.JsonStructure;
-import javax.json.JsonValue.ValueType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,51 +34,20 @@ public class GatewayHttpService {
 	}
 
 	@RequestMapping(value = "/command", method = RequestMethod.POST)
-	public void sendCommand(@RequestBody JsonStructure input) {
+	public void sendCommand(@RequestBody String input) {
 
 		LOG.debug("Processing command: \n{}", input);
 
-		JsonObject command = validate(input);
+		// FIXME accept JSON directly instead of parsing strings.
+		JsonReader reader = Json.createReader(new StringReader(input));
+
+		JsonStructure json = reader.read();
+
+		JsonObject command = validateCommand(json);
 
 		delegate.process(command);
 
 		LOG.debug("Successfully processed command.");
-	}
-
-	private JsonObject validate(JsonStructure input) {
-
-		if (input == null) {
-			throw new RuntimeException("JSON was null or empty.");
-		}
-
-		if (input.getValueType() != ValueType.OBJECT) {
-			throw new RuntimeException("Expected JSON object but was " + input.getValueType());
-		}
-
-		JsonObject jsonObject = (JsonObject) input;
-
-		checkPropertyExists(jsonObject, "messageId");
-		checkPropertyExists(jsonObject, "deviceId");
-		checkPropertyExists(jsonObject, "commandTemplateId");
-		checkPropertyExists(jsonObject, "message");
-
-		return jsonObject;
-	}
-
-	private static void checkPropertyExists(JsonObject json, String propertyName) {
-		if (!json.containsKey(propertyName)) {
-			throw new RuntimeException("Missing property " + propertyName);
-		}
-
-		if (json.get(propertyName).getValueType() != ValueType.STRING) {
-			throw new RuntimeException("Expected property " + propertyName + " to be a string");
-		}
-
-		String value = json.getString(propertyName).trim();
-
-		if (value == null || value.length() == 0) {
-			throw new RuntimeException(propertyName + " was empty.");
-		}
 	}
 
 }

@@ -21,7 +21,7 @@ public class GatewayBus {
 
 	private static final Logger LOG = LoggerFactory.getLogger(GatewayBus.class);
 
-	@Value("${watched.interfaces}")
+	@Value("${alljoyn.watched_interfaces}")
 	private String[] interfaces;
 
 	@Autowired

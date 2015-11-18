@@ -25,7 +25,7 @@ public class DefaultBusListener extends BusListener {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultBusListener.class);
 
-	@Value("${advertised.name.pfx}")
+	@Value("${alljoyn.advertised_name_pfx}")
 	private String advertisedNamePrefix;
 
 	@Value("${mock.device.id}")
@@ -60,7 +60,7 @@ public class DefaultBusListener extends BusListener {
 		LOG.debug("Lost advertised name: name[{}], transport[{}], prefix[{}]", name, transport, namePrefix);
 	}
 
-	public synchronized void foundAdvertisedName(String name, short transport, String namePrefix) {
+	public void foundAdvertisedName(String name, short transport, String namePrefix) {
 
 		LOG.debug("Found advertised name.  name: {}, transport: {}, name prefix: {}", name, transport, namePrefix);
 

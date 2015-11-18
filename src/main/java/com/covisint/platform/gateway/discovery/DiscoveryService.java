@@ -26,7 +26,7 @@ public class DiscoveryService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DiscoveryService.class);
 
-	@Value("${advertised.name.pfx}")
+	@Value("${alljoyn.advertised_name_pfx}")
 	private String advertisedNamePrefix;
 
 	@Autowired

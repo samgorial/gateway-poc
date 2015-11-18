@@ -18,8 +18,6 @@ public interface SessionRepository {
 
 	void clearDeviceSession(String deviceId);
 
-	SessionInfo getDeviceSession(String deviceId);
-
 	List<SessionEndpoint> getEndpointsByDevice(String deviceId);
 
 	List<SessionEndpoint> getEndpointsByInterface(String intf, SessionType type);

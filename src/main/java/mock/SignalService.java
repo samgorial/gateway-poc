@@ -41,7 +41,7 @@ public class SignalService {
 
 		mock.PiBusInterface mySignalInterface = new BusService();
 
-		status = mBus.registerBusObject(mySignalInterface, "/");
+		status = mBus.registerBusObject(mySignalInterface, "/example/path");
 		if (status != Status.OK) {
 			return;
 		}

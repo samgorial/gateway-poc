@@ -67,18 +67,6 @@ public class DefaultSessionRepository implements SessionRepository {
 		}
 	}
 
-	@Transactional(readOnly = true)
-	public SessionInfo getDeviceSession(String deviceId) {
-
-		List<SessionEndpoint> endpoints = getEndpointsByDevice(deviceId);
-
-		if (endpoints == null || endpoints.isEmpty()) {
-			throw new IllegalStateException("No sessions found for device " + deviceId);
-		}
-
-		return endpoints.get(0).getParentSession();
-	}
-
 	public List<SessionEndpoint> getEndpointsByInterface(String intf, SessionType type) {
 		TypedQuery<SessionEndpoint> query = em.createNamedQuery("SessionEndpoint.getByInterface",
 				SessionEndpoint.class);

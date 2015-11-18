@@ -7,6 +7,7 @@ import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
 import org.alljoyn.bus.SessionPortListener;
 import org.alljoyn.bus.Status;
+import static com.covisint.platform.gateway.util.AllJoynSupport.getDefaultSessionOpts;
 
 public class AboutService {
 	static {
@@ -20,35 +21,30 @@ public class AboutService {
 
 	public static void main(String[] args) {
 
-		BusAttachment mBus;
-		mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
+		BusAttachment mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 
-		Status status;
-
-		status = mBus.registerBusObject(new BusService(), "/example/path");
+		Status status = mBus.registerBusObject(new BusService(), "/example/path");
+		
 		if (status != Status.OK) {
 			return;
 		}
+		
 		System.out.println("BusAttachment.registerBusObject successful");
 
 		mBus.registerBusListener(new BusListener());
 
 		status = mBus.connect();
+		
 		if (status != Status.OK) {
-
 			return;
 		}
+		
 		System.out.println("BusAttachment.connect successful on " + System.getProperty("org.alljoyn.bus.address"));
 
 		Mutable.ShortValue contactPort = new Mutable.ShortValue(CONTACT_PORT);
 
-		SessionOpts sessionOpts = new SessionOpts();
-		sessionOpts.traffic = SessionOpts.TRAFFIC_MESSAGES;
-		sessionOpts.isMultipoint = false;
-		sessionOpts.proximity = SessionOpts.PROXIMITY_ANY;
-		sessionOpts.transports = SessionOpts.TRANSPORT_ANY;
-
-		status = mBus.bindSessionPort(contactPort, sessionOpts, new SessionPortListener() {
+		status = mBus.bindSessionPort(contactPort, getDefaultSessionOpts(), new SessionPortListener() {
+			
 			public boolean acceptSessionJoiner(short sessionPort, String joiner, SessionOpts sessionOpts) {
 				System.out.println("SessionPortListener.acceptSessionJoiner called");
 				if (sessionPort == CONTACT_PORT) {
@@ -65,16 +61,20 @@ public class AboutService {
 				sessionEstablished = true;
 			}
 		});
+		
 		if (status != Status.OK) {
 			return;
 		}
 
 		AboutObj aboutObj = new AboutObj(mBus);
+		
 		status = aboutObj.announce(contactPort.value, new MyAboutData());
+		
 		if (status != Status.OK) {
 			System.out.println("Announce failed " + status.toString());
 			return;
 		}
+		
 		System.out.println("Announce called announcing SessionPort: " + contactPort.value);
 
 		while (!sessionEstablished) {
@@ -85,6 +85,7 @@ public class AboutService {
 				e.printStackTrace();
 			}
 		}
+		
 		System.out.println("BusAttachment session established");
 
 		while (true) {
