@@ -13,7 +13,7 @@ public class AllJoynSupport {
 		opts.traffic = SessionOpts.TRAFFIC_MESSAGES;
 		opts.isMultipoint = false;
 		opts.proximity = SessionOpts.PROXIMITY_ANY;
-		opts.transports = SessionOpts.TRANSPORT_IP;
+		opts.transports = SessionOpts.TRANSPORT_ANY;
 		return opts;
 	}
 

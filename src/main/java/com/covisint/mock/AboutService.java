@@ -32,6 +32,7 @@ public class AboutService {
 		DEVICE_INTERFACE_MAP.put("com.covisint.mock.PingInterface", "587f72be0167");
 		DEVICE_INTERFACE_MAP.put("com.covisint.mock.SayHelloInterface", "8455ea8f488f");
 		DEVICE_INTERFACE_MAP.put("com.covisint.mock.PiBusInterface", "a3f6e76cbfbc");
+		DEVICE_INTERFACE_MAP.put("com.covisint.platform.device.demo.DemoInterface", "c963ba8bae3a");
 	}
 
 	public static void main(String[] args) {

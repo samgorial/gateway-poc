@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import com.covisint.mock.SignalHandler;
+import com.covisint.platform.device.demo.DemoSignalHandler;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
 
 @Component
@@ -67,6 +68,7 @@ public class GatewayBus {
 		
 		// TODO can't do it like this
 		bus.registerSignalHandlers(SignalHandler.INSTANCE);
+		bus.registerSignalHandlers(DemoSignalHandler.INSTANCE);
 
 		LOG.info("Target interfaces passed to who-implements call: {}", Arrays.deepToString(interfaces));
 		

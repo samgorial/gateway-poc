@@ -88,6 +88,12 @@
 			</exclusions>
 		</dependency>
 
+		<dependency>
+			<groupId>com.covisint.platform.devices</groupId>
+			<artifactId>aj-demo</artifactId>
+			<version>1-SNAPSHOT</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>
