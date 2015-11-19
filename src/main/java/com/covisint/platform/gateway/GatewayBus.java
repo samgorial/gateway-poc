@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import com.covisint.mock.SignalHandler;
 import com.covisint.platform.device.demo.DemoSignalHandler;
+import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
 
 @Component
@@ -29,8 +30,19 @@ public class GatewayBus {
 	@Value("${alljoyn.watched_interfaces}")
 	private String[] interfaces;
 
+	@Value("${alljoyn.blacklisted_interfaces}")
+	private String[] blacklisted;
+
 	@Autowired
 	private AboutListener aboutListener;
+
+	// TODO temporary
+	@Autowired
+	private SignalHandler signalHandler;
+
+	// TODO temporary
+	@Autowired
+	private DemoSignalHandler demoSignalHandler;
 
 	@Autowired
 	private BusAttachment attachment;
@@ -38,9 +50,16 @@ public class GatewayBus {
 	@Autowired
 	private SessionRepository sessionRepository;
 
+	@Autowired
+	private CatalogRepository catalogRepository;
+
 	@PostConstruct
 	public void init() {
 		sessionRepository.clearAll();
+
+		for (String name : blacklisted) {
+			catalogRepository.addToBlacklist(name, name + " not supported.");
+		}
 	}
 
 	@PreDestroy
@@ -65,14 +84,18 @@ public class GatewayBus {
 
 		// Register the About announcement listener.
 		bus.registerAboutListener(aboutListener);
-		
+
 		// TODO can't do it like this
-		bus.registerSignalHandlers(SignalHandler.INSTANCE);
-		bus.registerSignalHandlers(DemoSignalHandler.INSTANCE);
+		bus.registerSignalHandlers(signalHandler);
+		bus.registerSignalHandlers(demoSignalHandler);
 
 		LOG.info("Target interfaces passed to who-implements call: {}", Arrays.deepToString(interfaces));
-		
-		status = bus.whoImplements(interfaces);
+
+		if (interfaces.length == 0 || "*".equals(interfaces[0])) {
+			status = bus.whoImplements(null);
+		} else {
+			status = bus.whoImplements(interfaces);
+		}
 
 		if (status != Status.OK) {
 			LOG.error("Could not call who-implements method on about bus attachment: {}", status);
@@ -84,6 +107,18 @@ public class GatewayBus {
 
 	public BusAttachment getBusAttachment() {
 		return attachment;
+	}
+
+	// TODO temporary
+	@Bean
+	private DemoSignalHandler demoSignalHandler() {
+		return new DemoSignalHandler();
+	}
+
+	// TODO temporary
+	@Bean
+	private SignalHandler signalHandler() {
+		return new SignalHandler();
 	}
 
 }

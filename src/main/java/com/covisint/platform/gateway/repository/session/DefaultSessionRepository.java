@@ -60,7 +60,7 @@ public class DefaultSessionRepository implements SessionRepository {
 		List<SessionEndpoint> endpoints = getEndpointsByDevice(deviceId);
 
 		for (SessionEndpoint endpoint : endpoints) {
-			endpoint.setAssociatedDeviceId(null);
+			endpoint.setAssociatedDeviceTemplateId(null);
 			em.merge(endpoint);
 		}
 

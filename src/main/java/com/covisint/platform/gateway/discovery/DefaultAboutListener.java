@@ -2,7 +2,10 @@ package com.covisint.platform.gateway.discovery;
 
 import static com.covisint.platform.gateway.util.AllJoynSupport.getDefaultSessionOpts;
 
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import org.alljoyn.bus.AboutListener;
 import org.alljoyn.bus.AboutObjectDescription;
@@ -19,8 +22,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.covisint.mock.AboutService;
 import com.covisint.platform.gateway.GatewayBus;
+import com.covisint.platform.gateway.repository.catalog.CatalogItem;
+import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.covisint.platform.gateway.repository.session.AboutSession;
 import com.covisint.platform.gateway.repository.session.SessionEndpoint;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
@@ -41,6 +45,9 @@ public class DefaultAboutListener implements AboutListener {
 
 	@Autowired
 	private DiscoveryService discoveryService;
+
+	@Autowired
+	private CatalogRepository catalogRespository;
 
 	@Autowired
 	private SessionRepository sessionRepository;
@@ -82,23 +89,6 @@ public class DefaultAboutListener implements AboutListener {
 
 					String objectPath = o.path;
 
-					for (String iface : o.interfaces) {
-
-						SessionEndpoint endpoint = new SessionEndpoint();
-						endpoint.setParentSession(sessionInfo);
-						endpoint.setIntf(iface);
-						endpoint.setPath(objectPath);
-
-						// FIXME map device properly
-						if (!AboutService.DEVICE_INTERFACE_MAP.containsKey(iface)) {
-							throw new RuntimeException("No device mapped to interface " + iface);
-						}
-						endpoint.setAssociatedDeviceId(AboutService.DEVICE_INTERFACE_MAP.get(iface));
-
-						sessionInfo.getEndpoints().add(endpoint);
-
-					}
-
 					ProxyBusObject proxy = bus.getBusAttachment().getProxyBusObject(busName, objectPath, sessionId,
 							new Class<?>[] { AllSeenIntrospectable.class });
 
@@ -109,7 +99,38 @@ public class DefaultAboutListener implements AboutListener {
 
 					IntrospectResult introspectResult = introspector.doIntrospection(introspectable);
 
-					discoveryService.handleAsync(introspectResult);
+					List<Future<Boolean>> discoveryFutures = discoveryService.handleAsync(introspectResult);
+
+					int discovered = 0;
+
+					for (Future<Boolean> f : discoveryFutures) {
+						try {
+							discovered += f.get() ? 0 : 1;
+						} catch (InterruptedException | ExecutionException e) {
+							// TODO handle
+						}
+					}
+
+					LOG.info("Discovered {} new interfaces.", discovered);
+
+					for (String iface : o.interfaces) {
+
+						SessionEndpoint endpoint = new SessionEndpoint();
+						endpoint.setParentSession(sessionInfo);
+						endpoint.setIntf(iface);
+						endpoint.setPath(objectPath);
+
+						CatalogItem catalogItem = catalogRespository.searchByInterface(iface);
+
+						if (catalogItem == null) {
+							throw new IllegalStateException("Did not find interface " + iface + " in catalog.");
+						}
+
+						endpoint.setAssociatedDeviceTemplateId(catalogItem.getDeviceTemplateId());
+
+						sessionInfo.getEndpoints().add(endpoint);
+
+					}
 
 				}
 			}

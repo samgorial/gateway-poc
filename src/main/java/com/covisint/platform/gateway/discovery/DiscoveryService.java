@@ -1,20 +1,25 @@
 package com.covisint.platform.gateway.discovery;
 
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Future;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Component;
 
-import com.covisint.platform.device.core.device.Device;
+import com.covisint.platform.device.core.devicetemplate.DeviceTemplate;
 import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
-import com.covisint.platform.gateway.repository.DeviceCatalogDao;
-import com.covisint.platform.gateway.repository.DeviceProvisionerDao;
-import com.covisint.platform.gateway.repository.InterfaceBlacklistedException;
+import com.covisint.platform.gateway.repository.catalog.CatalogItem;
+import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.google.common.base.Stopwatch;
 
 @Component
@@ -22,61 +27,94 @@ public class DiscoveryService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DiscoveryService.class);
 
-	@Value("${alljoyn.advertised_name_pfx}")
-	private String advertisedNamePrefix;
+	@Autowired
+	private CatalogRepository catalogRepository;
 
 	@Autowired
-	private DeviceCatalogDao catalog;
+	private ProvisionerService provisionerService;
 
-	@Autowired
-	private DeviceProvisionerDao provisioner;
-
-	public void handleAsync(final IntrospectResult metadata) {
+	public List<Future<Boolean>> handleAsync(final IntrospectResult metadata) {
 
 		LOG.debug("Asynchronously processing AJ metadata containing {} interfaces.", metadata.getInterfaces().size());
 
+		List<Future<Boolean>> futures = new ArrayList<>();
+
 		for (final AJInterface intf : metadata.getInterfaces()) {
-			processInterface(intf);
+			futures.add(processInterface(intf));
 		}
 
+		return futures;
 	}
 
 	@Async
 	private Future<Boolean> processInterface(AJInterface intf) {
 
 		Stopwatch clock = Stopwatch.createStarted();
+		String name = intf.getName();
 
-		LOG.debug("Processing interface {}", intf.getName());
+		LOG.debug("Processing interface {}", name);
 
-		Device device = catalog.searchByInterface(intf);
+		if (catalogRepository.isBlacklisted(intf)) {
+			LOG.debug("Interface {} is blacklisted.  Not continuing.");
+			return new AsyncResult<>(true);
+		}
+
+		CatalogItem catalogItem = catalogRepository.searchByInterface(intf.getName());
 
 		boolean known = false;
 
-		if (device == null) {
-			LOG.info("No match found in device catalog for interface {}.  Will provision now.", intf.getName());
+		if (catalogItem == null) {
+			LOG.info("Catalog entry not found for interface {}, so will provision now.", name);
 
-			Device newDevice;
+			DeviceTemplate deviceTemplate = provisionerService.searchDeviceTemplates(intf);
 
-			try {
-				newDevice = provisioner.provisionNewDevice(intf);
-			} catch (InterfaceBlacklistedException e) {
-				LOG.warn("Given interface is blacklisted, will not provision: {}", intf.getName());
-				return new AsyncResult<>(true);
+			if (deviceTemplate == null) {
+				LOG.debug("No cloud device templates matching interface {}.  Will provision one now.", name);
+				deviceTemplate = provisionerService.createDeviceTemplate(intf);
+				LOG.info("Provisioned device template for interface {}: \n{}", name, deviceTemplate);
 			}
 
-			LOG.debug("Provisioned new device: \n{}", newDevice);
+			catalogItem = new CatalogItem();
+			catalogItem.setIface(name);
+			catalogItem.setDeviceTemplateId(deviceTemplate.getId());
+			catalogItem.setIntrospectionXml(marshalInterfaceXml(intf));
 
-			// bind methods
+			catalogRepository.createCatalogItem(catalogItem);
+
+			// TODO bind methods?
 
 		} else {
-			LOG.debug("Matched existing device {} to interface {}.  No further action to take.", device.getId(),
-					intf.getName());
+			LOG.debug("Catalog entry exists between device template {} and interface {}.  No further action to take.",
+					catalogItem.getDeviceTemplateId(), name);
 			known = true;
 		}
 
-		LOG.debug("Processing interface {} took {}", intf.getName(), clock);
+		LOG.debug("Processing interface {} took {}", name, clock);
 
 		return new AsyncResult<Boolean>(known);
+	}
+
+	private static String marshalInterfaceXml(AJInterface intf) {
+
+		JAXBContext jaxb;
+
+		try {
+			jaxb = JAXBContext.newInstance(AJInterface.class);
+
+			Marshaller marshaller = jaxb.createMarshaller();
+			marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+			marshaller.setProperty(Marshaller.JAXB_ENCODING, "UTF-8");
+
+			StringWriter writer = new StringWriter();
+
+			marshaller.marshal(intf, writer);
+
+			return writer.toString();
+
+		} catch (JAXBException e) {
+			throw new RuntimeException("Error occurred while marshalling AllJoyn interface", e);
+		}
+
 	}
 
 }

@@ -10,11 +10,6 @@ public class SignalHandler {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SignalHandler.class);
 
-	public static final SignalHandler INSTANCE = new SignalHandler();
-	
-	private SignalHandler() {
-	}
-	
 	@BusSignalHandler(iface = "com.covisint.mock.PiBusInterface", signal = "internalTempChanged")
 	public void internalTempChanged(double temp) {
 		LOG.info("Internal temperature changed to {}", temp);

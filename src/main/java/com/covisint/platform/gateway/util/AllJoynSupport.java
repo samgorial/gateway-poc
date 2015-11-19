@@ -6,6 +6,8 @@ import javax.json.JsonValue.ValueType;
 
 import org.alljoyn.bus.SessionOpts;
 
+import com.covisint.platform.device.core.DataType;
+
 public class AllJoynSupport {
 
 	public static final SessionOpts getDefaultSessionOpts() {
@@ -52,4 +54,25 @@ public class AllJoynSupport {
 		}
 	}
 
+	public static DataType getDataType(String ajType) {
+
+		switch (ajType) {
+		case "s":
+		case "y":
+			return DataType.STRING;
+		case "b":
+			return DataType.BOOL;
+		case "n":
+		case "q":
+		case "i":
+		case "u":
+		case "x":
+		case "t":
+			return DataType.INTEGER;
+		case "d":
+			return DataType.DECIMAL;
+		}
+
+		return null;
+	}
 }

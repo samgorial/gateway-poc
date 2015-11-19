@@ -16,6 +16,7 @@ public class MqttProducerService extends BaseMqttService {
 
 	@Bean
 	public MqttPahoClientFactory mqttClientFactory() {
+
 		DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
 		factory.setServerURIs(new String[] { url });
 		factory.setUserName(username);
@@ -26,7 +27,8 @@ public class MqttProducerService extends BaseMqttService {
 	@Bean
 	@ServiceActivator(inputChannel = "mqttOutboundChannel")
 	public MessageHandler mqttOutbound() {
-		MqttPahoMessageHandler messageHandler = new MqttPahoMessageHandler(clientId, mqttClientFactory());
+		MqttPahoMessageHandler messageHandler = new MqttPahoMessageHandler(clientId + "-" + qualifier,
+				mqttClientFactory());
 		messageHandler.setAsync(true);
 		messageHandler.setDefaultTopic(producerTopic);
 		return messageHandler;

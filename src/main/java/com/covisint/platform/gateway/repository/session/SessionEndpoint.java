@@ -37,8 +37,8 @@ public class SessionEndpoint implements Serializable {
 	@Column(name = "PATH")
 	private String path;
 
-	@Column(name = "DEVICE_ID")
-	private String associatedDeviceId;
+	@Column(name = "DEVICE_TEMPLATE_ID")
+	private String deviceTemplateId;
 
 	public AboutSession getParentSession() {
 		return parentSession;
@@ -64,12 +64,12 @@ public class SessionEndpoint implements Serializable {
 		this.path = path;
 	}
 
-	public String getAssociatedDeviceId() {
-		return associatedDeviceId;
+	public String getAssociatedDeviceTemplateId() {
+		return deviceTemplateId;
 	}
 
-	public void setAssociatedDeviceId(String associatedDeviceId) {
-		this.associatedDeviceId = associatedDeviceId;
+	public void setAssociatedDeviceTemplateId(String deviceTemplateId) {
+		this.deviceTemplateId = deviceTemplateId;
 	}
 
 	public boolean equals(Object obj) {

@@ -1,5 +1,7 @@
 package com.covisint.platform.gateway.mqtt;
 
+import java.util.Random;
+
 import org.springframework.beans.factory.annotation.Value;
 
 abstract class BaseMqttService {
@@ -27,5 +29,7 @@ abstract class BaseMqttService {
 
 	@Value("${mqtt.default_qos}")
 	protected int defaultQos;
+
+	protected long qualifier = new Random(System.currentTimeMillis()).nextLong();
 
 }
