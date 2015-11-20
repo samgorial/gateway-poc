@@ -20,6 +20,8 @@ import com.covisint.platform.device.client.attributetype.AttributeTypeSDK.Attrib
 import com.covisint.platform.device.client.attributetype.AttributeTypeSDK.AttributeTypeClient.AttributeTypeFilterSpec;
 import com.covisint.platform.device.client.commandtemplate.CommandTemplateSDK.CommandTemplateClient;
 import com.covisint.platform.device.client.commandtemplate.CommandTemplateSDK.CommandTemplateClient.CommandTemplateFilterSpec;
+import com.covisint.platform.device.client.device.DeviceSDK.DeviceClient;
+import com.covisint.platform.device.client.device.DeviceSDK.DeviceClient.DeviceFilterSpec;
 import com.covisint.platform.device.client.devicetemplate.DeviceTemplateSDK.DeviceTemplateClient;
 import com.covisint.platform.device.client.devicetemplate.DeviceTemplateSDK.DeviceTemplateClient.DeviceTemplateFilterSpec;
 import com.covisint.platform.device.client.eventtemplate.EventTemplateSDK.EventTemplateClient;
@@ -28,6 +30,7 @@ import com.covisint.platform.device.core.DataType;
 import com.covisint.platform.device.core.attributetype.AttributeType;
 import com.covisint.platform.device.core.commandtemplate.CommandArg;
 import com.covisint.platform.device.core.commandtemplate.CommandTemplate;
+import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.device.core.devicetemplate.DeviceTemplate;
 import com.covisint.platform.device.core.eventtemplate.EventField;
 import com.covisint.platform.device.core.eventtemplate.EventTemplate;
@@ -40,6 +43,7 @@ import com.covisint.platform.gateway.domain.alljoyn.AJSignal;
 import com.covisint.platform.gateway.util.AllJoynSupport;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 
@@ -54,6 +58,15 @@ public class DefaultProvisionerService implements ProvisionerService {
 	@Value("${agent.realm}")
 	private String realm;
 
+	@Value("${alljoyn.property_match_rating_threshold}")
+	private double propertyMatchRatingThreshold;
+
+	@Value("${alljoyn.signal_match_rating_threshold}")
+	private double signalMatchRatingThreshold;
+
+	@Value("${alljoyn.method_match_rating_threshold}")
+	private double methodMatchRatingThreshold;
+
 	@Autowired
 	private AttributeTypeClient attributeTypeClient;
 
@@ -66,6 +79,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 	@Autowired
 	private DeviceTemplateClient deviceTemplateClient;
 
+	@Autowired
+	private DeviceClient deviceClient;
+
 	public DeviceTemplate searchDeviceTemplates(AJInterface intf) {
 
 		LOG.debug("About to search for device templates matching interface {}", intf.getName());
@@ -75,233 +91,21 @@ public class DefaultProvisionerService implements ProvisionerService {
 		// Only want active templates.
 		filter.setActive(true);
 
-		addAttributeTypes(intf.getProperties(), filter);
+		List<DeviceTemplate> allTemplates = deviceTemplateClient.search(filter, Page.ALL).checkedGet();
 
-		addCommandTemplates(intf.getMethods(), filter);
+		List<DeviceTemplate> filtered = FluentIterable.from(allTemplates).filter(new DeviceTemplateMatcher(intf))
+				.toList();
 
-		addEventTemplates(intf.getSignals(), filter);
-
-		boolean validFilter = validateFilter(filter);
-
-		if (!validFilter) {
-			LOG.info("Could not build valid filter based on interface metadata.");
-			return null;
-		}
-
-		List<DeviceTemplate> matchingTemplates = deviceTemplateClient.search(filter, Page.ALL).checkedGet();
-
-		if (matchingTemplates.isEmpty()) {
+		if (filtered.isEmpty()) {
 			LOG.debug("Could not match any templates on interface {}", intf.getName());
 			return null;
-		} else if (matchingTemplates.size() > 1) {
+		} else if (filtered.size() > 1) {
 			LOG.warn(
 					"Problem, there are multiple ({}) matched device templates for interface {}, only expected 1.  Using the first one.",
-					matchingTemplates.size(), intf.getName());
+					filtered.size(), intf.getName());
 		}
 
-		return matchingTemplates.get(0);
-	}
-
-	private boolean validateFilter(DeviceTemplateFilterSpec filter) {
-
-		boolean valid = false;
-
-		valid |= !filter.getAttributeTypeIds().isEmpty();
-
-		valid |= !filter.getCommandTemplateIds().isEmpty();
-
-		valid |= !filter.getEventTemplateIds().isEmpty();
-
-		return valid;
-	}
-
-	private void addAttributeTypes(List<AJProperty> properties, DeviceTemplateFilterSpec filter) {
-
-		if (properties == null) {
-			return;
-		}
-
-		// TODO implement
-
-	}
-
-	private void addEventTemplates(List<AJSignal> signals, DeviceTemplateFilterSpec filter) {
-
-		if (signals == null) {
-			return;
-		}
-
-		for (AJSignal signal : signals)
-			outerLoop: {
-
-				String signalName = signal.getName();
-
-				EventTemplateFilterSpec eventTemplateFilter = new EventTemplateFilterSpec();
-				eventTemplateFilter.setActive(true);
-				eventTemplateFilter.setNames(signalName);
-
-				List<EventTemplate> eventTemplates = eventTemplateClient.search(eventTemplateFilter, Page.ALL)
-						.checkedGet();
-
-				if (eventTemplates.isEmpty()) {
-					LOG.warn("Uh Ooooh, did not find any event template with name {}", signalName);
-					continue;
-				} else if (eventTemplates.size() > 1) {
-					LOG.warn("Oh NOOOO's, only expected one event template with name {} but got {}. "
-							+ "Will only use the first one.", signalName, eventTemplates.size());
-				}
-
-				EventTemplate eventTemplate = eventTemplates.get(0);
-
-				if (signal.getArgs() != null) {
-
-					// Count number of signal arguments.
-					List<AJArg> signalArgs = FluentIterable.from(signal.getArgs()).filter(new Predicate<AJArg>() {
-
-						public boolean apply(AJArg input) {
-							if (input == null) {
-								return false;
-							}
-							return "out".equals(input.getDirection());
-						}
-
-					}).toList();
-
-					// Compare to number of event template arguments.
-					if (eventTemplate.getEventFields().size() != signalArgs.size()) {
-						LOG.warn(
-								"OOOPS!  Event template had {} fields but signal had {} (outbound).  Skipping event template.",
-								eventTemplate.getEventFields().size(), signalArgs.size());
-						continue;
-					}
-
-					int idx = 0;
-					for (AJArg arg : signalArgs) {
-
-						DataType signalArgType = AllJoynSupport.getDataType(arg.getType());
-						DataType eventFieldType = eventTemplate.getEventFields().get(idx).getDataType();
-
-						if (signalArgType != eventFieldType) {
-							LOG.warn("Shoot, signal and event field types differ at index {}: {} vs {}", idx,
-									signalArgType, eventFieldType);
-							break outerLoop;
-						}
-
-						String signalArgName = "arg" + idx;
-						String eventFieldName = eventTemplate.getEventFields().get(idx).getName();
-
-						if (signal.getAnnotations() != null) {
-							for (AJAnnotation annotation : signal.getAnnotations()) {
-								if (signalArgName.equalsIgnoreCase(annotation.getName())) {
-									signalArgName = annotation.getValue();
-								}
-							}
-						}
-
-						if (!signalArgName.equalsIgnoreCase(eventFieldName)) {
-							LOG.warn("Oh so close!  Signal and event field names differ at index {}: {} vs {}", idx,
-									signalArgName, eventFieldName);
-							break outerLoop;
-						}
-
-						idx++;
-					}
-
-				}
-
-				filter.addEventTemplateId(eventTemplates.get(0).getId());
-
-			}
-
-	}
-
-	private void addCommandTemplates(List<AJMethod> methods, DeviceTemplateFilterSpec filter) {
-
-		if (methods == null) {
-			return;
-		}
-
-		for (AJMethod method : methods)
-			outerLoop: {
-
-				String methodName = method.getName();
-
-				CommandTemplateFilterSpec commandTemplateFilter = new CommandTemplateFilterSpec();
-				commandTemplateFilter.setActive(true);
-				commandTemplateFilter.setNames(methodName);
-
-				List<CommandTemplate> commandTemplates = commandTemplateClient.search(commandTemplateFilter, Page.ALL)
-						.checkedGet();
-
-				if (commandTemplates.isEmpty()) {
-					LOG.warn("Uh Ooooh, did not find any command template with name {}", methodName);
-					continue;
-				} else if (commandTemplates.size() > 1) {
-					LOG.warn("Oh NOOOO's, only expected one command template with name {} but got {}. "
-							+ "Will only use the first one.", methodName, commandTemplates.size());
-				}
-
-				CommandTemplate commandTemplate = commandTemplates.get(0);
-
-				if (method.getArgs() != null) {
-
-					// Count number of method arguments.
-					List<AJArg> methodArgs = FluentIterable.from(method.getArgs()).filter(new Predicate<AJArg>() {
-
-						public boolean apply(AJArg input) {
-							if (input == null) {
-								return false;
-							}
-							return "in".equals(input.getDirection());
-						}
-
-					}).toList();
-
-					// Compare to number of command template arguments.
-					if (commandTemplate.getArgs().size() != methodArgs.size()) {
-						LOG.warn(
-								"OOOPS!  Command template had {} args but AJ method had {} (inbound).  Skipping command template.",
-								commandTemplate.getArgs().size(), methodArgs.size());
-						continue;
-					}
-
-					int idx = 0;
-					for (AJArg arg : methodArgs) {
-
-						DataType methodArgType = AllJoynSupport.getDataType(arg.getType());
-						DataType commandArgType = commandTemplate.getArgs().get(idx).getDataType();
-
-						if (methodArgType != commandArgType) {
-							LOG.warn("Shoot, method and command arg types differ at index {}: {} vs {}", idx,
-									methodArgType, commandArgType);
-							break outerLoop;
-						}
-
-						String methodArgName = "arg" + idx;
-						String commandArgName = commandTemplate.getArgs().get(idx).getName();
-
-						if (method.getAnnotations() != null) {
-							for (AJAnnotation annotation : method.getAnnotations()) {
-								if (methodArgName.equalsIgnoreCase(annotation.getName())) {
-									methodArgName = annotation.getValue();
-								}
-							}
-						}
-
-						if (!methodArgName.equalsIgnoreCase(commandArgName)) {
-							LOG.warn("Oh so close!  Method and command arg names differ at index {}: {} vs {}", idx,
-									methodArgName, commandArgName);
-							break outerLoop;
-						}
-
-						idx++;
-					}
-
-				}
-
-				filter.addCommandTemplateId(commandTemplates.get(0).getId());
-			}
-
+		return filtered.get(0);
 	}
 
 	public DeviceTemplate createDeviceTemplate(AJInterface intf) {
@@ -313,7 +117,7 @@ public class DefaultProvisionerService implements ProvisionerService {
 		List<EventTemplate> eventTemplates = createEventTemplates(intf.getSignals());
 
 		DeviceTemplateFilterSpec filter = new DeviceTemplateFilterSpec();
-
+		filter.setActive(true);
 		filter.setAttributeTypeIds(FluentIterable.from(attrTypes).transform(IdGetter.INSTANCE).toSet());
 		filter.setCommandTemplateIds(FluentIterable.from(commandTemplates).transform(IdGetter.INSTANCE).toSet());
 		filter.setEventTemplateIds(FluentIterable.from(eventTemplates).transform(IdGetter.INSTANCE).toSet());
@@ -404,7 +208,6 @@ public class DefaultProvisionerService implements ProvisionerService {
 			for (Map.Entry<String, Variant> entry : aboutData.entrySet()) {
 
 				String key = entry.getKey();
-				Variant value = entry.getValue();
 
 				AttributeTypeFilterSpec attrFilter = new AttributeTypeFilterSpec();
 				attrFilter.setActive(true);
@@ -427,25 +230,6 @@ public class DefaultProvisionerService implements ProvisionerService {
 				attrType.setCreationInstant(System.currentTimeMillis());
 				attrType.setName(name);
 				attrType.setDataType(DataType.STRING);
-
-				try {
-					if (key.equals("AppId")) {
-						byte[] appId = value.getObject(byte[].class);
-						StringBuilder sb = new StringBuilder();
-						for (byte b : appId) {
-							sb.append(String.format("%02X", b));
-						}
-						attrType.setConstant(sb.toString());
-					} else if (key.equals("SupportedLanguages")) {
-						String[] supportedLanguages = value.getObject(String[].class);
-						attrType.setConstant(Joiner.on(',').join(supportedLanguages));
-					} else {
-						attrType.setConstant(value.getObject(String.class));
-					}
-				} catch (BusException e) {
-					LOG.error("Error occurred while appending about data!", e);
-					continue;
-				}
 
 				AttributeType created = attributeTypeClient.add(attrType).checkedGet();
 				attributeTypeClient.activateAttributeType(created.getId()).checkedGet();
@@ -646,4 +430,336 @@ public class DefaultProvisionerService implements ProvisionerService {
 		}
 
 	}
+
+	public Device createDevice(String deviceTemplateId, Map<String, Variant> aboutData) {
+
+		LOG.debug("Creating new device.");
+
+		Device device = deviceClient.createDeviceFromTemplate(deviceTemplateId).checkedGet();
+
+		deviceClient.activateDevice(device.getId());
+
+		LOG.debug("Created and activated device with id {}", device.getId());
+
+		device = deviceClient.get(device.getId(), new FetchOpts().embedAttributeTypes()).checkedGet();
+
+		if (aboutData != null) {
+
+			for (AttributeType attrType : device.getStandardAttributeTypes()) {
+
+				String attrTypeName = attrType.getName();
+
+				Variant value = aboutData.get(attrTypeName);
+
+				if (value == null) {
+					LOG.debug("Hmm, no about data variant found for attribute type {} of device {}", attrTypeName,
+							device.getId());
+					continue;
+				}
+
+				try {
+					if (attrTypeName.equals("AppId")) {
+						byte[] appId = value.getObject(byte[].class);
+						StringBuilder sb = new StringBuilder();
+						for (byte b : appId) {
+							sb.append(String.format("%02X", b));
+						}
+						device.setStandardAttributeValue(attrTypeName, sb.toString());
+
+						// Also need to tag with the AppId (it's special)
+						String tag = attrTypeName + ":" + sb.toString();
+						deviceClient.tagDevice(device.getId(), tag).checkedGet();
+						LOG.debug("Tagged device {}: {}", device.getId(), tag);
+
+					} else if (attrTypeName.equals("SupportedLanguages")) {
+						String[] supportedLanguages = value.getObject(String[].class);
+						device.setStandardAttributeValue(attrTypeName, Joiner.on(',').join(supportedLanguages));
+					} else {
+						device.setStandardAttributeValue(attrTypeName, value.getObject(String.class));
+					}
+				} catch (BusException e) {
+					LOG.error("Error occurred while appending about data!", e);
+					continue;
+				}
+
+			}
+
+			device = deviceClient.update(device).checkedGet();
+
+		}
+
+		deviceClient.tagDevice(device.getId(), "Created by " + agentName).checkedGet();
+
+		device = deviceClient.get(device.getId(), new FetchOpts().embedAttributeTypes()).checkedGet();
+
+		LOG.debug("Created device {}", device);
+
+		return device;
+	}
+
+	public Device searchDevices(String deviceTemplateId, Map<String, Variant> aboutData) {
+
+		if (aboutData == null) {
+			LOG.warn("About data was null, no AppId to search on!");
+			return null;
+		}
+
+		Variant value = aboutData.get("AppId");
+
+		if (value == null) {
+			LOG.warn("No AppId to search on!");
+			return null;
+		}
+
+		StringBuilder sb = new StringBuilder();
+
+		try {
+			byte[] appId = value.getObject(byte[].class);
+			for (byte b : appId) {
+				sb.append(String.format("%02X", b));
+			}
+		} catch (BusException e) {
+			LOG.error("Error occurred while appending about data!", e);
+			return null;
+		}
+
+		LOG.debug("Searching for devices that implement template {} and are tagged with {}", deviceTemplateId,
+				sb.toString());
+
+		DeviceFilterSpec filter = new DeviceFilterSpec();
+		filter.setActive(true);
+		filter.setParentDeviceTemplateIds(deviceTemplateId);
+		filter.addTag(sb.toString());
+
+		List<Device> matches = deviceClient.search(filter, Page.ALL).checkedGet();
+
+		if (matches.isEmpty()) {
+			LOG.debug("No matches found.");
+			return null;
+		} else if (matches.size() > 1) {
+			LOG.warn("Dang, saw multiple matches for the same tagged AppId, this should not be.");
+		}
+
+		return matches.get(0);
+	}
+
+	private class DeviceTemplateMatcher implements Predicate<DeviceTemplate> {
+
+		private final AJInterface intf;
+
+		public DeviceTemplateMatcher(AJInterface intf) {
+			this.intf = intf;
+		}
+
+		public boolean apply(DeviceTemplate input) {
+
+			if (input == null) {
+				return false;
+			}
+
+			double propertiesRating = attributeTypeMatchRating(intf.getProperties(), input.getAttributeTypes());
+
+			double signalsRating = eventTemplateMatchRating(intf.getSignals(), input.getEventTemplates());
+
+			double methodsRating = commandTemplateMatchRating(intf.getMethods(), input.getCommandTemplates());
+
+			boolean match = true;
+
+			match &= propertiesRating > propertyMatchRatingThreshold;
+			match &= signalsRating > signalMatchRatingThreshold;
+			match &= methodsRating > methodMatchRatingThreshold;
+
+			return match;
+		}
+
+		private double attributeTypeMatchRating(List<AJProperty> properties, List<AttributeType> attrTypes) {
+			// TODO implement
+			return propertyMatchRatingThreshold;
+		}
+
+		private double eventTemplateMatchRating(List<AJSignal> signals, List<EventTemplate> eventTemplates) {
+
+			if (signals == null) {
+				return 100;
+			}
+
+			int matchCount = 0;
+
+			for (AJSignal signal : signals)
+				outerLoop: {
+
+					final String signalName = signal.getName();
+
+					Optional<EventTemplate> optional = FluentIterable.from(eventTemplates)
+							.firstMatch(new Predicate<EventTemplate>() {
+
+								public boolean apply(EventTemplate input) {
+									return input.getName().equals(signalName);
+								}
+
+							});
+
+					if (!optional.isPresent()) {
+						LOG.warn("Uh Ooooh, did not find any event template with name {}", signalName);
+						continue;
+					}
+
+					EventTemplate eventTemplate = optional.get();
+
+					if (signal.getArgs() != null) {
+
+						// Count number of signal arguments.
+						List<AJArg> signalArgs = FluentIterable.from(signal.getArgs()).filter(new Predicate<AJArg>() {
+
+							public boolean apply(AJArg input) {
+								if (input == null) {
+									return false;
+								}
+								return "out".equals(input.getDirection());
+							}
+
+						}).toList();
+
+						// Compare to number of event template arguments.
+						if (eventTemplate.getEventFields().size() != signalArgs.size()) {
+							LOG.warn(
+									"OOOPS!  Event template had {} fields but signal had {} (outbound).  Skipping event template.",
+									eventTemplate.getEventFields().size(), signalArgs.size());
+							continue;
+						}
+
+						int idx = 0;
+						for (AJArg arg : signalArgs) {
+
+							DataType signalArgType = AllJoynSupport.getDataType(arg.getType());
+							DataType eventFieldType = eventTemplate.getEventFields().get(idx).getDataType();
+
+							if (signalArgType != eventFieldType) {
+								LOG.warn("Shoot, signal and event field types differ at index {}: {} vs {}", idx,
+										signalArgType, eventFieldType);
+								break outerLoop;
+							}
+
+							String signalArgName = "arg" + idx;
+							String eventFieldName = eventTemplate.getEventFields().get(idx).getName();
+
+							if (signal.getAnnotations() != null) {
+								for (AJAnnotation annotation : signal.getAnnotations()) {
+									if (signalArgName.equalsIgnoreCase(annotation.getName())) {
+										signalArgName = annotation.getValue();
+									}
+								}
+							}
+
+							if (!signalArgName.equalsIgnoreCase(eventFieldName)) {
+								LOG.warn("Oh so close!  Signal and event field names differ at index {}: {} vs {}", idx,
+										signalArgName, eventFieldName);
+								break outerLoop;
+							}
+
+							idx++;
+						}
+
+					}
+
+					matchCount++;
+
+				}
+
+			return matchCount / signals.size() * 100;
+		}
+
+		private double commandTemplateMatchRating(List<AJMethod> methods, List<CommandTemplate> commandTemplates) {
+
+			if (methods == null) {
+				return 100;
+			}
+
+			int matchCount = 0;
+
+			for (AJMethod method : methods)
+				outerLoop: {
+
+					final String methodName = method.getName();
+
+					Optional<CommandTemplate> optional = FluentIterable.from(commandTemplates)
+							.firstMatch(new Predicate<CommandTemplate>() {
+
+								public boolean apply(CommandTemplate input) {
+									return input.getName().equals(methodName);
+								}
+
+							});
+
+					if (!optional.isPresent()) {
+						LOG.warn("Uh Ooooh, did not find any command template with name {}", methodName);
+						continue;
+					}
+
+					CommandTemplate commandTemplate = optional.get();
+
+					if (method.getArgs() != null) {
+
+						// Count number of method arguments.
+						List<AJArg> methodArgs = FluentIterable.from(method.getArgs()).filter(new Predicate<AJArg>() {
+
+							public boolean apply(AJArg input) {
+								if (input == null) {
+									return false;
+								}
+								return "in".equals(input.getDirection());
+							}
+
+						}).toList();
+
+						// Compare to number of command template arguments.
+						if (commandTemplate.getArgs().size() != methodArgs.size()) {
+							LOG.warn(
+									"OOOPS!  Command template had {} args but AJ method had {} (inbound).  Skipping command template.",
+									commandTemplate.getArgs().size(), methodArgs.size());
+							continue;
+						}
+
+						int idx = 0;
+						for (AJArg arg : methodArgs) {
+
+							DataType methodArgType = AllJoynSupport.getDataType(arg.getType());
+							DataType commandArgType = commandTemplate.getArgs().get(idx).getDataType();
+
+							if (methodArgType != commandArgType) {
+								LOG.warn("Shoot, method and command arg types differ at index {}: {} vs {}", idx,
+										methodArgType, commandArgType);
+								break outerLoop;
+							}
+
+							String methodArgName = "arg" + idx;
+							String commandArgName = commandTemplate.getArgs().get(idx).getName();
+
+							if (method.getAnnotations() != null) {
+								for (AJAnnotation annotation : method.getAnnotations()) {
+									if (methodArgName.equalsIgnoreCase(annotation.getName())) {
+										methodArgName = annotation.getValue();
+									}
+								}
+							}
+
+							if (!methodArgName.equalsIgnoreCase(commandArgName)) {
+								LOG.warn("Oh so close!  Method and command arg names differ at index {}: {} vs {}", idx,
+										methodArgName, commandArgName);
+								break outerLoop;
+							}
+
+							idx++;
+						}
+
+					}
+
+					matchCount++;
+				}
+
+			return matchCount / methods.size() * 100;
+		}
+
+	}
+
 }

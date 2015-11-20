@@ -15,8 +15,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
+import com.covisint.mock.DemoSignalHandler;
 import com.covisint.mock.SignalHandler;
-import com.covisint.platform.device.demo.DemoSignalHandler;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
 

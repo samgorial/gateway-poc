@@ -28,7 +28,22 @@ public class DefaultSessionRepository implements SessionRepository {
 		}
 
 		em.persist(session);
+
 		LOG.debug("Persisted session {}", session);
+	}
+
+	@Transactional
+	public void addSessionEndpoint(int sessionId, SessionEndpoint endpoint) {
+
+		AboutSession session = getAboutSessionById(sessionId);
+
+		if (session == null) {
+			throw new IllegalArgumentException("Session does not exist: " + sessionId);
+		}
+
+		em.persist(endpoint);
+
+		LOG.debug("Added session endpoint to session {}", sessionId);
 	}
 
 	@Transactional
@@ -81,13 +96,14 @@ public class DefaultSessionRepository implements SessionRepository {
 			return new ArrayList<>();
 		}
 
+		LOG.debug("Returning {} session endpoints found for device {}", endpoints.size(), deviceId);
+
 		return endpoints;
 	}
 
 	@Transactional
 	public void clearAll() {
 		em.createQuery("DELETE FROM AboutSession").executeUpdate();
-
 		LOG.debug("Cleared all About sessions including associated endpoints.");
 	}
 

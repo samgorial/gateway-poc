@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import org.alljoyn.bus.AboutListener;
 import org.alljoyn.bus.AboutObjectDescription;
@@ -23,13 +22,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.gateway.GatewayBus;
 import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
-import com.covisint.platform.gateway.repository.catalog.CatalogItem;
-import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.covisint.platform.gateway.repository.session.AboutSession;
-import com.covisint.platform.gateway.repository.session.SessionEndpoint;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
+import com.google.common.base.Optional;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 @Component
 public class DefaultAboutListener implements AboutListener {
@@ -47,9 +47,6 @@ public class DefaultAboutListener implements AboutListener {
 
 	@Autowired
 	private DiscoveryService discoveryService;
-
-	@Autowired
-	private CatalogRepository catalogRespository;
 
 	@Autowired
 	private SessionRepository sessionRepository;
@@ -72,15 +69,19 @@ public class DefaultAboutListener implements AboutListener {
 
 		int sessionId = sessionIdWrapper.value;
 
-		LOG.debug("Successfully joined About bus session with sessionId {}", sessionId);
+		LOG.debug("Successfully joined about bus session with sessionId {}", sessionId);
 
 		AboutProxy aboutProxy = new AboutProxy(bus.getBusAttachment(), busName, sessionId);
+
+		LOG.debug("Creating new AboutSession entry.");
 
 		AboutSession sessionInfo = new AboutSession();
 		sessionInfo.setSessionId(sessionId);
 		sessionInfo.setBusName(busName);
 		sessionInfo.setPort(port);
 		sessionInfo.setSessionOpts(getDefaultSessionOpts());
+
+		sessionRepository.createAboutSession(sessionInfo);
 
 		try {
 
@@ -98,52 +99,31 @@ public class DefaultAboutListener implements AboutListener {
 
 					IntrospectResult introspectResult = introspector.doIntrospection(introspectable);
 
-					LOG.debug("Asynchronously processing AJ metadata containing {} interfaces.",
-							introspectResult.getInterfaces().size());
+					List<AJInterface> interfaces = introspectResult.getInterfaces();
 
-					List<Future<Boolean>> futures = new ArrayList<>();
+					LOG.debug("Asynchronously processing AJ metadata containing {} interfaces.", interfaces.size());
 
-					for (final AJInterface intf : introspectResult.getInterfaces()) {
+					List<ListenableFuture<Optional<Device>>> futures = new ArrayList<>();
+
+					for (final AJInterface intf : interfaces) {
+						// Set about-data map into the interface for downstream
+						// processing.
 						intf.setAboutData(aboutData);
-						futures.add(discoveryService.processInterface(intf));
+						// Process each interface async.
+						futures.add(discoveryService.processInterface(intf, sessionInfo, objectPath));
 					}
 
-					int discovered = 0;
-
-					for (Future<Boolean> f : futures) {
-						try {
-							discovered += f.get() ? 0 : 1;
-						} catch (InterruptedException | ExecutionException e) {
-							throw new RuntimeException("Error encountered while waiting for tasks to complete.", e);
-						}
-					}
-
-					LOG.info("Discovered {} new interfaces.", discovered);
-
-					for (String iface : o.interfaces) {
-
-						SessionEndpoint endpoint = new SessionEndpoint();
-						endpoint.setParentSession(sessionInfo);
-						endpoint.setIntf(iface);
-						endpoint.setPath(objectPath);
-
-						CatalogItem catalogItem = catalogRespository.searchByInterface(iface);
-
-						if (catalogItem == null) {
-							throw new IllegalStateException("Did not find interface " + iface + " in catalog.");
-						}
-
-						endpoint.setAssociatedDeviceTemplateId(catalogItem.getDeviceTemplateId());
-
-						sessionInfo.getEndpoints().add(endpoint);
-
+					try {
+						// Wait on all async tasks to finish.
+						Futures.allAsList(futures).get();
+					} catch (InterruptedException | ExecutionException e) {
+						throw new RuntimeException("Error encountered while waiting for tasks to complete.", e);
 					}
 
 				}
 			}
 
-			sessionRepository.createAboutSession(sessionInfo);
-
+			// Done. Log summary.
 			logSummary(busName, aboutProxy.getVersion(), port, aod, aboutProxy.getAboutData("en"));
 
 		} catch (BusException e) {

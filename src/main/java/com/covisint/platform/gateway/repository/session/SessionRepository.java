@@ -8,6 +8,8 @@ public interface SessionRepository {
 
 	void createAboutSession(AboutSession session);
 
+	void addSessionEndpoint(int sessionId, SessionEndpoint endpoint);
+
 	void deleteAboutSession(int sessionId);
 
 	void clearDeviceSession(String deviceId);

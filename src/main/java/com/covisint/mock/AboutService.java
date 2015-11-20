@@ -9,7 +9,6 @@ import java.util.concurrent.Executors;
 
 import org.alljoyn.bus.AboutObj;
 import org.alljoyn.bus.BusAttachment;
-import org.alljoyn.bus.BusException;
 import org.alljoyn.bus.BusListener;
 import org.alljoyn.bus.Mutable;
 import org.alljoyn.bus.SessionOpts;
@@ -39,29 +38,29 @@ public class AboutService {
 
 		BusAttachment mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 
-//		final PiBusInterface service = new BusService();
-		
-		final SayHelloInterface service = new SingleService();
+		 final PiBusInterface service = new BusService();
+
+//		final SayHelloInterface service = new SingleService();
 
 		Status status;
 
-		status = mBus.registerBusObject(service, "/single");
+//		status = mBus.registerBusObject(service, "/single");
+//
+//		if (status != Status.OK) {
+//			return;
+//		}
+
+		 status = mBus.registerBusObject(service, "/example/path");
 		
-		if (status != Status.OK) {
-			return;
-		}
+		 if (status != Status.OK) {
+		 return;
+		 }
 
-//		status = mBus.registerBusObject(service, "/example/path");
-//
-//		if (status != Status.OK) {
-//			return;
-//		}
-
-//		status = mBus.registerBusObject(new MultiService(), "/multi");
-//
-//		if (status != Status.OK) {
-//			return;
-//		}
+		// status = mBus.registerBusObject(new MultiService(), "/multi");
+		//
+		// if (status != Status.OK) {
+		// return;
+		// }
 
 		System.out.println("BusAttachment.registerBusObject successful");
 
@@ -95,19 +94,20 @@ public class AboutService {
 				executor.submit(new Runnable() {
 
 					public void run() {
-						SignalEmitter emitter = new SignalEmitter(service, joiner, id,
-								SignalEmitter.GlobalBroadcast.On);
-
-						PiBusInterface myInterface = emitter.getInterface(PiBusInterface.class);
-
 						try {
+
+							SignalEmitter emitter = new SignalEmitter(service, joiner, id,
+									SignalEmitter.GlobalBroadcast.On);
+
+							PiBusInterface myInterface = emitter.getInterface(PiBusInterface.class);
+
 							while (true) {
 								myInterface.buzzerTurnedOn();
 								Thread.sleep(5000);
 								myInterface.buzzerTurnedOff();
 								Thread.sleep(5000);
 							}
-						} catch (BusException | InterruptedException e) {
+						} catch (Exception e) {
 							e.printStackTrace();
 						}
 

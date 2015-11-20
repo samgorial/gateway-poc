@@ -19,7 +19,7 @@ import org.apache.commons.lang.builder.ToStringBuilder;
 @Entity
 @Table(name = "SESSION_ENDPOINT")
 @NamedQueries({
-		@NamedQuery(name = "SessionEndpoint.getByDeviceId", query = "FROM SessionEndpoint WHERE associatedDeviceId = :id") })
+		@NamedQuery(name = "SessionEndpoint.getByDeviceId", query = "FROM SessionEndpoint WHERE deviceId = :id") })
 public class SessionEndpoint implements Serializable {
 
 	private static final long serialVersionUID = 1L;
@@ -39,6 +39,9 @@ public class SessionEndpoint implements Serializable {
 
 	@Column(name = "DEVICE_TEMPLATE_ID")
 	private String deviceTemplateId;
+
+	@Column(name = "DEVICE_ID")
+	private String deviceId;
 
 	public AboutSession getParentSession() {
 		return parentSession;
@@ -70,6 +73,14 @@ public class SessionEndpoint implements Serializable {
 
 	public void setAssociatedDeviceTemplateId(String deviceTemplateId) {
 		this.deviceTemplateId = deviceTemplateId;
+	}
+
+	public String getAssociatedDeviceId() {
+		return deviceId;
+	}
+
+	public void setAssociatedDeviceId(String deviceId) {
+		this.deviceId = deviceId;
 	}
 
 	public boolean equals(Object obj) {

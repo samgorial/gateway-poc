@@ -8,6 +8,8 @@ import com.covisint.platform.device.client.attributetype.AttributeTypeSDK;
 import com.covisint.platform.device.client.attributetype.AttributeTypeSDK.AttributeTypeClient;
 import com.covisint.platform.device.client.commandtemplate.CommandTemplateSDK;
 import com.covisint.platform.device.client.commandtemplate.CommandTemplateSDK.CommandTemplateClient;
+import com.covisint.platform.device.client.device.DeviceSDK;
+import com.covisint.platform.device.client.device.DeviceSDK.DeviceClient;
 import com.covisint.platform.device.client.devicetemplate.DeviceTemplateSDK;
 import com.covisint.platform.device.client.devicetemplate.DeviceTemplateSDK.DeviceTemplateClient;
 import com.covisint.platform.device.client.eventtemplate.EventTemplateSDK;
@@ -28,6 +30,9 @@ public final class HttpClientFactory {
 	@Value("${http.device_template_service_url}")
 	private String deviceTemplateServiceBaseUrl;
 
+	@Value("${http.device_service_url}")
+	private String deviceServiceBaseUrl;
+
 	@Bean
 	public AttributeTypeClient attributeTypeClient() {
 		return new AttributeTypeSDK(attributeTypeServiceBaseUrl).newClient();
@@ -46,6 +51,11 @@ public final class HttpClientFactory {
 	@Bean
 	public DeviceTemplateClient deviceTemplateClient() {
 		return new DeviceTemplateSDK(deviceTemplateServiceBaseUrl).newClient();
+	}
+
+	@Bean
+	public DeviceClient deviceClient() {
+		return new DeviceSDK(deviceServiceBaseUrl).newClient();
 	}
 
 }
