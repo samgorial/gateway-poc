@@ -2,6 +2,7 @@ package com.covisint.platform.gateway.discovery;
 
 import static com.covisint.platform.gateway.util.AllJoynSupport.getDefaultSessionOpts;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -23,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.covisint.platform.gateway.GatewayBus;
+import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
 import com.covisint.platform.gateway.repository.catalog.CatalogItem;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.covisint.platform.gateway.repository.session.AboutSession;
@@ -94,20 +96,25 @@ public class DefaultAboutListener implements AboutListener {
 
 					AllSeenIntrospectable introspectable = proxy.getInterface(AllSeenIntrospectable.class);
 
-					// TODO add introspect xml to endpoint
-					// TODO where to do introspection?
-
 					IntrospectResult introspectResult = introspector.doIntrospection(introspectable);
 
-					List<Future<Boolean>> discoveryFutures = discoveryService.handleAsync(introspectResult);
+					LOG.debug("Asynchronously processing AJ metadata containing {} interfaces.",
+							introspectResult.getInterfaces().size());
+
+					List<Future<Boolean>> futures = new ArrayList<>();
+
+					for (final AJInterface intf : introspectResult.getInterfaces()) {
+						intf.setAboutData(aboutData);
+						futures.add(discoveryService.processInterface(intf));
+					}
 
 					int discovered = 0;
 
-					for (Future<Boolean> f : discoveryFutures) {
+					for (Future<Boolean> f : futures) {
 						try {
 							discovered += f.get() ? 0 : 1;
 						} catch (InterruptedException | ExecutionException e) {
-							// TODO handle
+							throw new RuntimeException("Error encountered while waiting for tasks to complete.", e);
 						}
 					}
 

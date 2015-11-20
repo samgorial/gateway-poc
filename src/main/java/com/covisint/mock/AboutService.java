@@ -39,19 +39,29 @@ public class AboutService {
 
 		BusAttachment mBus = new BusAttachment("AppName", BusAttachment.RemoteMessage.Receive);
 
-		final PiBusInterface service = new BusService();
+//		final PiBusInterface service = new BusService();
+		
+		final SayHelloInterface service = new SingleService();
 
-		Status status = mBus.registerBusObject(service, "/example/path");
+		Status status;
 
+		status = mBus.registerBusObject(service, "/single");
+		
 		if (status != Status.OK) {
 			return;
 		}
 
-		status = mBus.registerBusObject(new MultiService(), "/multi");
+//		status = mBus.registerBusObject(service, "/example/path");
+//
+//		if (status != Status.OK) {
+//			return;
+//		}
 
-		if (status != Status.OK) {
-			return;
-		}
+//		status = mBus.registerBusObject(new MultiService(), "/multi");
+//
+//		if (status != Status.OK) {
+//			return;
+//		}
 
 		System.out.println("BusAttachment.registerBusObject successful");
 

@@ -1,8 +1,6 @@
 package com.covisint.platform.gateway.discovery;
 
 import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Future;
 
 import javax.xml.bind.JAXBContext;
@@ -14,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import com.covisint.platform.device.core.devicetemplate.DeviceTemplate;
 import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
@@ -22,7 +20,7 @@ import com.covisint.platform.gateway.repository.catalog.CatalogItem;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.google.common.base.Stopwatch;
 
-@Component
+@Service
 public class DiscoveryService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DiscoveryService.class);
@@ -33,21 +31,8 @@ public class DiscoveryService {
 	@Autowired
 	private ProvisionerService provisionerService;
 
-	public List<Future<Boolean>> handleAsync(final IntrospectResult metadata) {
-
-		LOG.debug("Asynchronously processing AJ metadata containing {} interfaces.", metadata.getInterfaces().size());
-
-		List<Future<Boolean>> futures = new ArrayList<>();
-
-		for (final AJInterface intf : metadata.getInterfaces()) {
-			futures.add(processInterface(intf));
-		}
-
-		return futures;
-	}
-
 	@Async
-	private Future<Boolean> processInterface(AJInterface intf) {
+	public Future<Boolean> processInterface(AJInterface intf) {
 
 		Stopwatch clock = Stopwatch.createStarted();
 		String name = intf.getName();

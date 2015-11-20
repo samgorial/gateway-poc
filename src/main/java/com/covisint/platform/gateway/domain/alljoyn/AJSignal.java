@@ -13,6 +13,8 @@ public class AJSignal extends AJBaseObject {
 
 	private List<AJArg> args;
 
+	private List<AJAnnotation> annotations;
+
 	@XmlAttribute(name = "name")
 	public void setName(String name) {
 		this.name = name;
@@ -29,6 +31,15 @@ public class AJSignal extends AJBaseObject {
 	@XmlElement(name = "arg")
 	public void setArgs(List<AJArg> args) {
 		this.args = args;
+	}
+
+	public List<AJAnnotation> getAnnotations() {
+		return annotations;
+	}
+
+	@XmlElement(name = "annotation")
+	public void setAnnotations(List<AJAnnotation> annotations) {
+		this.annotations = annotations;
 	}
 
 }
