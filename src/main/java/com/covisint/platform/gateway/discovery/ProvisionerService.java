@@ -18,4 +18,6 @@ public interface ProvisionerService {
 
 	Device createDevice(String deviceTemplateId, Map<String, Variant> aboutData);
 
+	void deactivateProvisionedComponents();
+	
 }

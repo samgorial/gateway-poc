@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import com.covisint.mock.DemoSignalHandler;
 import com.covisint.mock.SignalHandler;
+import com.covisint.platform.gateway.discovery.ProvisionerService;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
 
@@ -32,6 +33,9 @@ public class GatewayBus {
 
 	@Value("${alljoyn.blacklisted_interfaces}")
 	private String[] blacklisted;
+
+	@Value("${agent.reset_provisioned_components}")
+	private boolean resetProvisionedComponents;
 
 	@Autowired
 	private AboutListener aboutListener;
@@ -53,12 +57,19 @@ public class GatewayBus {
 	@Autowired
 	private CatalogRepository catalogRepository;
 
+	@Autowired
+	ProvisionerService provisionerService;
+
 	@PostConstruct
 	public void init() {
 		sessionRepository.clearAll();
 
 		for (String name : blacklisted) {
 			catalogRepository.addToBlacklist(name, name + " not supported.");
+		}
+
+		if (resetProvisionedComponents) {
+			provisionerService.deactivateProvisionedComponents();
 		}
 	}
 

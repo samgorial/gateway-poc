@@ -1,6 +1,5 @@
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/domain/alljoyn/AJBaseObject.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/PingInterface.java
-/home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/BusSignalHandlerAspect.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/repository/catalog/CatalogRepository.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/repository/session/DefaultSessionRepository.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/MyAboutData.java
@@ -8,9 +7,9 @@
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/discovery/IntrospectResult.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/repository/catalog/DefaultCatalogRepository.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/Gateway.java
+/home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/repository/session/SessionEndpoint.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/repository/catalog/BlacklistedInterface.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/mqtt/BaseMqttService.java
-/home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/repository/session/SessionEndpoint.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/SingleService.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/BusService.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/mqtt/MqttProducerService.java
@@ -33,6 +32,7 @@
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/MultiService.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/bind/HardcodedCommandDelegate.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/SignalHandler.java
+/home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/DemoSignalHandler.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/SayHelloInterface.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/mock/PiBusInterface.java
 /home/sam/workspace/gateway-agent/src/main/java/com/covisint/platform/gateway/discovery/ProvisionerService.java

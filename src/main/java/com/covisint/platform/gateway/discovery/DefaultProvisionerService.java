@@ -157,6 +157,167 @@ public class DefaultProvisionerService implements ProvisionerService {
 		return retrieved;
 	}
 
+	public Device createDevice(String deviceTemplateId, Map<String, Variant> aboutData) {
+
+		LOG.debug("Creating new device.");
+
+		Device device = deviceClient.createDeviceFromTemplate(deviceTemplateId).checkedGet();
+
+		deviceClient.activateDevice(device.getId());
+
+		LOG.debug("Created and activated device with id {}", device.getId());
+
+		device = deviceClient.get(device.getId(), new FetchOpts().embedAttributeTypes()).checkedGet();
+
+		if (aboutData != null) {
+
+			for (AttributeType attrType : device.getStandardAttributeTypes()) {
+
+				String attrTypeName = attrType.getName();
+
+				Variant value = aboutData.get(attrTypeName);
+
+				if (value == null) {
+					LOG.debug("Hmm, no about data variant found for attribute type {} of device {}", attrTypeName,
+							device.getId());
+					continue;
+				}
+
+				try {
+					if (attrTypeName.equals("AppId")) {
+						byte[] appId = value.getObject(byte[].class);
+						StringBuilder sb = new StringBuilder();
+						for (byte b : appId) {
+							sb.append(String.format("%02X", b));
+						}
+						device.setStandardAttributeValue(attrTypeName, sb.toString());
+
+						// Also need to tag with the AppId (it's special)
+						String tag = attrTypeName + ":" + sb.toString();
+						deviceClient.tagDevice(device.getId(), tag).checkedGet();
+						LOG.debug("Tagged device {}: {}", device.getId(), tag);
+
+					} else if (attrTypeName.equals("SupportedLanguages")) {
+						String[] supportedLanguages = value.getObject(String[].class);
+						device.setStandardAttributeValue(attrTypeName, Joiner.on(',').join(supportedLanguages));
+					} else {
+						device.setStandardAttributeValue(attrTypeName, value.getObject(String.class));
+					}
+				} catch (BusException e) {
+					LOG.error("Error occurred while appending about data!", e);
+					continue;
+				}
+
+			}
+
+			device = deviceClient.update(device).checkedGet();
+
+		}
+
+		deviceClient.tagDevice(device.getId(), "Created by " + agentName).checkedGet();
+
+		device = deviceClient.get(device.getId(), new FetchOpts().embedAttributeTypes()).checkedGet();
+
+		LOG.debug("Created device {}", device);
+
+		return device;
+	}
+
+	public Device searchDevices(String deviceTemplateId, Map<String, Variant> aboutData) {
+
+		if (aboutData == null) {
+			LOG.warn("About data was null, no AppId to search on!");
+			return null;
+		}
+
+		Variant value = aboutData.get("AppId");
+
+		if (value == null) {
+			LOG.warn("No AppId to search on!");
+			return null;
+		}
+
+		StringBuilder sb = new StringBuilder();
+
+		try {
+			byte[] appId = value.getObject(byte[].class);
+			for (byte b : appId) {
+				sb.append(String.format("%02X", b));
+			}
+		} catch (BusException e) {
+			LOG.error("Error occurred while appending about data!", e);
+			return null;
+		}
+
+		LOG.debug("Searching for devices that implement template {} and are tagged with {}", deviceTemplateId,
+				sb.toString());
+
+		DeviceFilterSpec filter = new DeviceFilterSpec();
+		filter.setActive(true);
+		filter.setParentDeviceTemplateIds(deviceTemplateId);
+		filter.addTag(sb.toString());
+
+		List<Device> matches = deviceClient.search(filter, Page.ALL).checkedGet();
+
+		if (matches.isEmpty()) {
+			LOG.debug("No matches found.");
+			return null;
+		} else if (matches.size() > 1) {
+			LOG.warn("Dang, saw multiple matches for the same tagged AppId, this should not be.");
+		}
+
+		return matches.get(0);
+	}
+
+	public void deactivateProvisionedComponents() {
+
+		AttributeTypeFilterSpec attrFilter = new AttributeTypeFilterSpec();
+		attrFilter.setActive(true);
+
+		List<AttributeType> activeAttrs = attributeTypeClient.search(attrFilter, Page.ALL).checkedGet();
+
+		for (AttributeType attr : activeAttrs) {
+			attributeTypeClient.deactivateAttributeType(attr.getId());
+		}
+
+		CommandTemplateFilterSpec commandFilter = new CommandTemplateFilterSpec();
+		commandFilter.setActive(true);
+
+		List<CommandTemplate> activeCommands = commandTemplateClient.search(commandFilter, Page.ALL).checkedGet();
+
+		for (CommandTemplate command : activeCommands) {
+			commandTemplateClient.deactivateCommandTemplate(command.getId());
+		}
+
+		EventTemplateFilterSpec eventFilter = new EventTemplateFilterSpec();
+		eventFilter.setActive(true);
+
+		List<EventTemplate> activeEvents = eventTemplateClient.search(eventFilter, Page.ALL).checkedGet();
+
+		for (EventTemplate event : activeEvents) {
+			eventTemplateClient.deactivateEventTemplate(event.getId());
+		}
+
+		DeviceTemplateFilterSpec deviceTemplateFilter = new DeviceTemplateFilterSpec();
+		deviceTemplateFilter.setActive(true);
+
+		List<DeviceTemplate> activeTemplates = deviceTemplateClient.search(deviceTemplateFilter, Page.ALL).checkedGet();
+
+		for (DeviceTemplate template : activeTemplates) {
+			deviceTemplateClient.deactivateDeviceTemplate(template.getId());
+		}
+
+		DeviceFilterSpec deviceFilter = new DeviceFilterSpec();
+		deviceFilter.setActive(true);
+
+		List<Device> activeDevices = deviceClient.search(deviceFilter, Page.ALL).checkedGet();
+
+		for (Device device : activeDevices) {
+			deviceClient.deactivateDevice(device.getId());
+		}
+
+	}
+
 	private DeviceTemplate fetchFullDeviceTemplate(String id) {
 		FetchOpts fetchOpts = new FetchOpts().embedAttributeTypes().embedCommandTemplates().embedEventTemplates();
 		return deviceTemplateClient.get(id, fetchOpts).checkedGet();
@@ -418,131 +579,6 @@ public class DefaultProvisionerService implements ProvisionerService {
 		return events;
 	}
 
-	private static class IdGetter implements Function<Resource, String> {
-
-		private static final IdGetter INSTANCE = new IdGetter();
-
-		public String apply(Resource input) {
-			if (input == null) {
-				return null;
-			}
-			return input.getId();
-		}
-
-	}
-
-	public Device createDevice(String deviceTemplateId, Map<String, Variant> aboutData) {
-
-		LOG.debug("Creating new device.");
-
-		Device device = deviceClient.createDeviceFromTemplate(deviceTemplateId).checkedGet();
-
-		deviceClient.activateDevice(device.getId());
-
-		LOG.debug("Created and activated device with id {}", device.getId());
-
-		device = deviceClient.get(device.getId(), new FetchOpts().embedAttributeTypes()).checkedGet();
-
-		if (aboutData != null) {
-
-			for (AttributeType attrType : device.getStandardAttributeTypes()) {
-
-				String attrTypeName = attrType.getName();
-
-				Variant value = aboutData.get(attrTypeName);
-
-				if (value == null) {
-					LOG.debug("Hmm, no about data variant found for attribute type {} of device {}", attrTypeName,
-							device.getId());
-					continue;
-				}
-
-				try {
-					if (attrTypeName.equals("AppId")) {
-						byte[] appId = value.getObject(byte[].class);
-						StringBuilder sb = new StringBuilder();
-						for (byte b : appId) {
-							sb.append(String.format("%02X", b));
-						}
-						device.setStandardAttributeValue(attrTypeName, sb.toString());
-
-						// Also need to tag with the AppId (it's special)
-						String tag = attrTypeName + ":" + sb.toString();
-						deviceClient.tagDevice(device.getId(), tag).checkedGet();
-						LOG.debug("Tagged device {}: {}", device.getId(), tag);
-
-					} else if (attrTypeName.equals("SupportedLanguages")) {
-						String[] supportedLanguages = value.getObject(String[].class);
-						device.setStandardAttributeValue(attrTypeName, Joiner.on(',').join(supportedLanguages));
-					} else {
-						device.setStandardAttributeValue(attrTypeName, value.getObject(String.class));
-					}
-				} catch (BusException e) {
-					LOG.error("Error occurred while appending about data!", e);
-					continue;
-				}
-
-			}
-
-			device = deviceClient.update(device).checkedGet();
-
-		}
-
-		deviceClient.tagDevice(device.getId(), "Created by " + agentName).checkedGet();
-
-		device = deviceClient.get(device.getId(), new FetchOpts().embedAttributeTypes()).checkedGet();
-
-		LOG.debug("Created device {}", device);
-
-		return device;
-	}
-
-	public Device searchDevices(String deviceTemplateId, Map<String, Variant> aboutData) {
-
-		if (aboutData == null) {
-			LOG.warn("About data was null, no AppId to search on!");
-			return null;
-		}
-
-		Variant value = aboutData.get("AppId");
-
-		if (value == null) {
-			LOG.warn("No AppId to search on!");
-			return null;
-		}
-
-		StringBuilder sb = new StringBuilder();
-
-		try {
-			byte[] appId = value.getObject(byte[].class);
-			for (byte b : appId) {
-				sb.append(String.format("%02X", b));
-			}
-		} catch (BusException e) {
-			LOG.error("Error occurred while appending about data!", e);
-			return null;
-		}
-
-		LOG.debug("Searching for devices that implement template {} and are tagged with {}", deviceTemplateId,
-				sb.toString());
-
-		DeviceFilterSpec filter = new DeviceFilterSpec();
-		filter.setActive(true);
-		filter.setParentDeviceTemplateIds(deviceTemplateId);
-		filter.addTag(sb.toString());
-
-		List<Device> matches = deviceClient.search(filter, Page.ALL).checkedGet();
-
-		if (matches.isEmpty()) {
-			LOG.debug("No matches found.");
-			return null;
-		} else if (matches.size() > 1) {
-			LOG.warn("Dang, saw multiple matches for the same tagged AppId, this should not be.");
-		}
-
-		return matches.get(0);
-	}
-
 	private class DeviceTemplateMatcher implements Predicate<DeviceTemplate> {
 
 		private final AJInterface intf;
@@ -557,11 +593,16 @@ public class DefaultProvisionerService implements ProvisionerService {
 				return false;
 			}
 
-			double propertiesRating = attributeTypeMatchRating(intf.getProperties(), input.getAttributeTypes());
+			DeviceTemplate fullTemplate = deviceTemplateClient
+					.get(input.getId(),
+							new FetchOpts().embedAttributeTypes().embedCommandTemplates().embedEventTemplates())
+					.checkedGet();
 
-			double signalsRating = eventTemplateMatchRating(intf.getSignals(), input.getEventTemplates());
+			double propertiesRating = attributeTypeMatchRating(intf.getProperties(), fullTemplate.getAttributeTypes());
 
-			double methodsRating = commandTemplateMatchRating(intf.getMethods(), input.getCommandTemplates());
+			double signalsRating = eventTemplateMatchRating(intf.getSignals(), fullTemplate.getEventTemplates());
+
+			double methodsRating = commandTemplateMatchRating(intf.getMethods(), fullTemplate.getCommandTemplates());
 
 			boolean match = true;
 
@@ -590,10 +631,17 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 					final String signalName = signal.getName();
 
+					if (signalName == null) {
+						continue;
+					}
+
 					Optional<EventTemplate> optional = FluentIterable.from(eventTemplates)
 							.firstMatch(new Predicate<EventTemplate>() {
 
 								public boolean apply(EventTemplate input) {
+									if (input == null) {
+										return false;
+									}
 									return input.getName().equals(signalName);
 								}
 
@@ -609,16 +657,8 @@ public class DefaultProvisionerService implements ProvisionerService {
 					if (signal.getArgs() != null) {
 
 						// Count number of signal arguments.
-						List<AJArg> signalArgs = FluentIterable.from(signal.getArgs()).filter(new Predicate<AJArg>() {
-
-							public boolean apply(AJArg input) {
-								if (input == null) {
-									return false;
-								}
-								return "out".equals(input.getDirection());
-							}
-
-						}).toList();
+						List<AJArg> signalArgs = FluentIterable.from(signal.getArgs()).filter(IsOutputArg.INSTANCE)
+								.toList();
 
 						// Compare to number of event template arguments.
 						if (eventTemplate.getEventFields().size() != signalArgs.size()) {
@@ -682,10 +722,17 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 					final String methodName = method.getName();
 
+					if (methodName == null) {
+						continue;
+					}
+
 					Optional<CommandTemplate> optional = FluentIterable.from(commandTemplates)
 							.firstMatch(new Predicate<CommandTemplate>() {
 
 								public boolean apply(CommandTemplate input) {
+									if (input == null) {
+										return false;
+									}
 									return input.getName().equals(methodName);
 								}
 
@@ -701,16 +748,8 @@ public class DefaultProvisionerService implements ProvisionerService {
 					if (method.getArgs() != null) {
 
 						// Count number of method arguments.
-						List<AJArg> methodArgs = FluentIterable.from(method.getArgs()).filter(new Predicate<AJArg>() {
-
-							public boolean apply(AJArg input) {
-								if (input == null) {
-									return false;
-								}
-								return "in".equals(input.getDirection());
-							}
-
-						}).toList();
+						List<AJArg> methodArgs = FluentIterable.from(method.getArgs()).filter(IsInputArg.INSTANCE)
+								.toList();
 
 						// Compare to number of command template arguments.
 						if (commandTemplate.getArgs().size() != methodArgs.size()) {
@@ -760,6 +799,43 @@ public class DefaultProvisionerService implements ProvisionerService {
 			return matchCount / methods.size() * 100;
 		}
 
+	}
+
+	private static class IdGetter implements Function<Resource, String> {
+
+		private static final IdGetter INSTANCE = new IdGetter();
+
+		public String apply(Resource input) {
+			if (input == null) {
+				return null;
+			}
+			return input.getId();
+		}
+
+	}
+
+	private static class IsInputArg implements Predicate<AJArg> {
+
+		static IsInputArg INSTANCE = new IsInputArg();
+
+		public boolean apply(AJArg input) {
+			if (input == null) {
+				return false;
+			}
+			return "in".equals(input.getDirection());
+		}
+	}
+
+	private static class IsOutputArg implements Predicate<AJArg> {
+
+		static IsOutputArg INSTANCE = new IsOutputArg();
+
+		public boolean apply(AJArg input) {
+			if (input == null) {
+				return false;
+			}
+			return "out".equals(input.getDirection());
+		}
 	}
 
 }

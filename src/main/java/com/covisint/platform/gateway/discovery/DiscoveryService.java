@@ -54,7 +54,7 @@ public class DiscoveryService {
 		LOG.debug("Processing interface {}", name);
 
 		if (catalogRepository.isBlacklisted(intf)) {
-			LOG.debug("Interface {} is blacklisted.  Not continuing.");
+			LOG.debug("Interface {} is blacklisted.  Not continuing.", intf);
 			return Futures.immediateFuture(Optional.<Device> absent());
 		}
 

@@ -88,21 +88,21 @@ public class SignalService {
 
 		int flags = 0; // do not use any request name flags
 		status = mBus.requestName(ADVERTISED_NAME, flags);
-		
+
 		if (status != Status.OK) {
 			return;
 		}
-		
+
 		System.out.println("BusAttachment.request '" + ADVERTISED_NAME + "' successful");
 
 		status = mBus.advertiseName(ADVERTISED_NAME, SessionOpts.TRANSPORT_ANY);
-		
+
 		if (status != Status.OK) {
 			System.out.println("Status = " + status);
 			mBus.releaseName(ADVERTISED_NAME);
 			return;
 		}
-		
+
 		System.out.println("BusAttachment.advertiseName '" + ADVERTISED_NAME + "' successful");
 
 		try {
