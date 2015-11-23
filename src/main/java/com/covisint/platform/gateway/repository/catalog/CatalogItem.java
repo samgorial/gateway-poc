@@ -1,14 +1,19 @@
 package com.covisint.platform.gateway.repository.catalog;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Lob;
 import javax.persistence.NamedQuery;
+import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
@@ -40,6 +45,9 @@ public class CatalogItem implements Serializable {
 	@Lob
 	private String introspectionXml;
 
+	@OneToMany(fetch = FetchType.EAGER, mappedBy = "parentCatalogItem", cascade = CascadeType.ALL)
+	private List<MethodMapping> methodMappings = new ArrayList<>();
+
 	public int getId() {
 		return id;
 	}
@@ -70,6 +78,14 @@ public class CatalogItem implements Serializable {
 
 	public void setIntrospectionXml(String introspectionXml) {
 		this.introspectionXml = introspectionXml;
+	}
+
+	public List<MethodMapping> getMethodMappings() {
+		return methodMappings;
+	}
+
+	public void setMethodMappings(List<MethodMapping> methodMappings) {
+		this.methodMappings = methodMappings;
 	}
 
 	public boolean equals(Object obj) {

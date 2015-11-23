@@ -1,14 +1,31 @@
 package com.covisint.platform.gateway.util;
 
+import java.util.List;
+
+import javax.json.JsonNumber;
 import javax.json.JsonObject;
+import javax.json.JsonString;
 import javax.json.JsonStructure;
+import javax.json.JsonValue;
 import javax.json.JsonValue.ValueType;
 
 import org.alljoyn.bus.SessionOpts;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.covisint.platform.device.core.DataType;
+import com.covisint.platform.device.core.commandtemplate.CommandTemplate;
+import com.covisint.platform.gateway.discovery.DefaultProvisionerService.IsInputArg;
+import com.covisint.platform.gateway.domain.alljoyn.AJAnnotation;
+import com.covisint.platform.gateway.domain.alljoyn.AJArg;
+import com.covisint.platform.gateway.domain.alljoyn.AJMethod;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 
 public class AllJoynSupport {
+
+	private static final Logger LOG = LoggerFactory.getLogger(AllJoynSupport.class);
 
 	public static final SessionOpts getDefaultSessionOpts() {
 		SessionOpts opts = new SessionOpts();
@@ -74,5 +91,122 @@ public class AllJoynSupport {
 		}
 
 		return null;
+	}
+
+	public static Object getJsonValueFromType(String argName, String ajType, JsonValue json) {
+
+		switch (ajType) {
+		case "s":
+		case "y":
+			if (json.getValueType() != ValueType.STRING) {
+				throw new IllegalArgumentException(
+						"Expected string value for arg " + argName + " but got " + json.getValueType());
+			}
+			return ((JsonString) json).getString();
+		case "b":
+			if (json.getValueType() != ValueType.FALSE && json.getValueType() != ValueType.TRUE) {
+				throw new IllegalArgumentException(
+						"Expected boolean value for arg " + argName + " but got " + json.getValueType());
+			}
+			return json == JsonValue.TRUE ? true : false;
+		case "d":
+			if (json.getValueType() != ValueType.NUMBER) {
+				throw new IllegalArgumentException(
+						"Expected number (decimal) value for arg " + argName + " but got " + json.getValueType());
+			}
+			return ((JsonNumber) json).doubleValue();
+		case "n":
+		case "q":
+		case "i":
+		case "u":
+		case "x":
+		case "t":
+			if (json.getValueType() != ValueType.NUMBER) {
+				throw new IllegalArgumentException(
+						"Expected number (integer) value for arg " + argName + " but got " + json.getValueType());
+			}
+			return ((JsonNumber) json).intValue();
+		default:
+			throw new IllegalArgumentException("Unsuppored AJ type id " + ajType);
+		}
+
+	}
+
+	public static CommandTemplate getCommandTemplateForMethod(AJMethod method, List<CommandTemplate> commandTemplates) {
+		Optional<CommandTemplate> optional = FluentIterable.from(commandTemplates)
+				.firstMatch(new Predicate<CommandTemplate>() {
+
+					public boolean apply(CommandTemplate input) {
+						if (input == null) {
+							return false;
+						}
+						return input.getName().equals(method.getName());
+					}
+
+				});
+
+		if (!optional.isPresent()) {
+			return null;
+		}
+
+		return optional.get();
+	}
+
+	public static boolean matchCommandArgs(CommandTemplate commandTemplate, AJMethod method,
+			CommandArgMatchProcessor processor) {
+
+		if (method.getArgs() == null) {
+			// No args, just assume a match.
+			return true;
+		}
+
+		// Count number of method arguments.
+		List<AJArg> methodArgs = FluentIterable.from(method.getArgs()).filter(IsInputArg.INSTANCE).toList();
+
+		// Compare to number of command template arguments.
+		if (commandTemplate.getArgs().size() != methodArgs.size()) {
+			LOG.warn("OOOPS!  Command template had {} args but AJ method had {} (inbound).  Skipping command template.",
+					commandTemplate.getArgs().size(), methodArgs.size());
+			return false;
+		}
+
+		int idx = 0;
+		for (AJArg arg : methodArgs) {
+
+			DataType methodArgType = AllJoynSupport.getDataType(arg.getType());
+			DataType commandArgType = commandTemplate.getArgs().get(idx).getDataType();
+
+			if (methodArgType != commandArgType) {
+				LOG.warn("Shoot, method and command arg types differ at index {}: {} vs {}", idx, methodArgType,
+						commandArgType);
+				return false;
+			}
+
+			String methodArgName = "arg" + idx;
+			String commandArgName = commandTemplate.getArgs().get(idx).getName();
+
+			if (method.getAnnotations() != null) {
+				for (AJAnnotation annotation : method.getAnnotations()) {
+					if (methodArgName.equalsIgnoreCase(annotation.getName())) {
+						methodArgName = annotation.getValue();
+					}
+				}
+			}
+
+			if (!methodArgName.equalsIgnoreCase(commandArgName)) {
+				LOG.warn("Oh so close!  Method and command arg names differ at index {}: {} vs {}", idx, methodArgName,
+						commandArgName);
+				return false;
+			}
+
+			if (processor != null) {
+				processor.onMatch(methodArgName, commandArgName, arg.getType(), commandArgType);
+			}
+
+			idx++;
+		}
+
+		return true;
+
 	}
 }

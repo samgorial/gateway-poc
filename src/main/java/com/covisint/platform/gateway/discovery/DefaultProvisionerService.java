@@ -110,7 +110,7 @@ public class DefaultProvisionerService implements ProvisionerService {
 		}
 
 		// TODO how to handle multiple template matches better?
-		return filtered.get(0);
+		return fetchFullDeviceTemplate(filtered.get(0).getId());
 	}
 
 	public DeviceTemplate createDeviceTemplate(AJInterface intf) {
@@ -627,10 +627,7 @@ public class DefaultProvisionerService implements ProvisionerService {
 				return false;
 			}
 
-			DeviceTemplate fullTemplate = deviceTemplateClient
-					.get(input.getId(),
-							new FetchOpts().embedAttributeTypes().embedCommandTemplates().embedEventTemplates())
-					.checkedGet();
+			DeviceTemplate fullTemplate = fetchFullDeviceTemplate(input.getId());
 
 			double propertiesRating = attributeTypeMatchRating(intf.getProperties(), fullTemplate.getAttributeTypes());
 
@@ -760,74 +757,22 @@ public class DefaultProvisionerService implements ProvisionerService {
 						continue;
 					}
 
-					Optional<CommandTemplate> optional = FluentIterable.from(commandTemplates)
-							.firstMatch(new Predicate<CommandTemplate>() {
+					CommandTemplate commandTemplate = AllJoynSupport.getCommandTemplateForMethod(method,
+							commandTemplates);
 
-								public boolean apply(CommandTemplate input) {
-									if (input == null) {
-										return false;
-									}
-									return input.getName().equals(methodName);
-								}
-
-							});
-
-					if (!optional.isPresent()) {
+					if (commandTemplate == null) {
 						LOG.warn("Uh Ooooh, did not find any command template with name {}", methodName);
 						continue;
 					}
 
-					CommandTemplate commandTemplate = optional.get();
+					boolean result = AllJoynSupport.matchCommandArgs(commandTemplate, method, null);
 
-					if (method.getArgs() != null) {
-
-						// Count number of method arguments.
-						List<AJArg> methodArgs = FluentIterable.from(method.getArgs()).filter(IsInputArg.INSTANCE)
-								.toList();
-
-						// Compare to number of command template arguments.
-						if (commandTemplate.getArgs().size() != methodArgs.size()) {
-							LOG.warn(
-									"OOOPS!  Command template had {} args but AJ method had {} (inbound).  Skipping command template.",
-									commandTemplate.getArgs().size(), methodArgs.size());
-							continue;
-						}
-
-						int idx = 0;
-						for (AJArg arg : methodArgs) {
-
-							DataType methodArgType = AllJoynSupport.getDataType(arg.getType());
-							DataType commandArgType = commandTemplate.getArgs().get(idx).getDataType();
-
-							if (methodArgType != commandArgType) {
-								LOG.warn("Shoot, method and command arg types differ at index {}: {} vs {}", idx,
-										methodArgType, commandArgType);
-								break outerLoop;
-							}
-
-							String methodArgName = "arg" + idx;
-							String commandArgName = commandTemplate.getArgs().get(idx).getName();
-
-							if (method.getAnnotations() != null) {
-								for (AJAnnotation annotation : method.getAnnotations()) {
-									if (methodArgName.equalsIgnoreCase(annotation.getName())) {
-										methodArgName = annotation.getValue();
-									}
-								}
-							}
-
-							if (!methodArgName.equalsIgnoreCase(commandArgName)) {
-								LOG.warn("Oh so close!  Method and command arg names differ at index {}: {} vs {}", idx,
-										methodArgName, commandArgName);
-								break outerLoop;
-							}
-
-							idx++;
-						}
-
+					if (result == true) {
+						matchCount++;
+					} else {
+						break outerLoop;
 					}
 
-					matchCount++;
 				}
 
 			return matchCount / methods.size() * 100;
@@ -848,9 +793,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 	}
 
-	private static class IsInputArg implements Predicate<AJArg> {
+	public static class IsInputArg implements Predicate<AJArg> {
 
-		static IsInputArg INSTANCE = new IsInputArg();
+		public static final IsInputArg INSTANCE = new IsInputArg();
 
 		public boolean apply(AJArg input) {
 			if (input == null) {
@@ -860,9 +805,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 		}
 	}
 
-	private static class IsOutputArg implements Predicate<AJArg> {
+	public static class IsOutputArg implements Predicate<AJArg> {
 
-		static IsOutputArg INSTANCE = new IsOutputArg();
+		public static final IsOutputArg INSTANCE = new IsOutputArg();
 
 		public boolean apply(AJArg input) {
 			if (input == null) {

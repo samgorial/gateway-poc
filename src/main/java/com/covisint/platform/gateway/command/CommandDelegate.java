@@ -1,4 +1,4 @@
-package com.covisint.platform.gateway.bind;
+package com.covisint.platform.gateway.command;
 
 import javax.json.JsonObject;
 

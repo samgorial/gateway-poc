@@ -25,7 +25,7 @@ import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.MessagingException;
 import org.springframework.stereotype.Component;
 
-import com.covisint.platform.gateway.bind.CommandDelegate;
+import com.covisint.platform.gateway.command.CommandDelegate;
 
 @Component
 public class MqttConsumerService extends BaseMqttService {
@@ -66,7 +66,6 @@ public class MqttConsumerService extends BaseMqttService {
 
 				LOG.debug("Processing command: \n{}", payload);
 
-				// FIXME accept JSON directly instead of parsing strings.
 				JsonReader reader = Json.createReader(new StringReader(payload));
 
 				JsonStructure json = reader.read();

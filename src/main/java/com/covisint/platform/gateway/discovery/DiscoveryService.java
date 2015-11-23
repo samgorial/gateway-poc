@@ -16,14 +16,21 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import com.covisint.platform.device.core.DataType;
+import com.covisint.platform.device.core.commandtemplate.CommandTemplate;
 import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.device.core.devicetemplate.DeviceTemplate;
 import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
+import com.covisint.platform.gateway.domain.alljoyn.AJMethod;
+import com.covisint.platform.gateway.repository.catalog.ArgMapping;
 import com.covisint.platform.gateway.repository.catalog.CatalogItem;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
+import com.covisint.platform.gateway.repository.catalog.MethodMapping;
 import com.covisint.platform.gateway.repository.session.AboutSession;
 import com.covisint.platform.gateway.repository.session.SessionEndpoint;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
+import com.covisint.platform.gateway.util.AllJoynSupport;
+import com.covisint.platform.gateway.util.CommandArgMatchProcessor;
 import com.google.common.base.Optional;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Futures;
@@ -119,17 +126,97 @@ public class DiscoveryService {
 			LOG.info("Provisioned device template for interface {}: \n{}", name, deviceTemplate);
 		}
 
-		LOG.debug("Creating catalog entry for interface {}", name);
+		LOG.debug("Created complete catalog entry for interface {}", name);
 
 		CatalogItem catalogItem = new CatalogItem();
 		catalogItem.setIface(name);
 		catalogItem.setDeviceTemplateId(deviceTemplate.getId());
 		catalogItem.setIntrospectionXml(marshalInterfaceXml(intf));
 
+		addMethodMappings(catalogItem, intf, deviceTemplate);
+
 		catalogRepository.createCatalogItem(catalogItem);
 
 		return deviceTemplate.getId();
 	}
+
+	private void addMethodMappings(CatalogItem catalogItem, AJInterface intf, DeviceTemplate deviceTemplate) {
+
+		if (intf.getMethods() == null) {
+			return;
+		}
+
+		for (AJMethod method : intf.getMethods()) {
+
+			MethodMapping methodMapping = null;
+
+			for (CommandTemplate commandTmpl : deviceTemplate.getCommandTemplates()) {
+
+				if (!commandTmpl.getName().equals(method.getName())) {
+					continue;
+				}
+
+				methodMapping = new MethodMapping();
+				methodMapping.setParentCatalogItem(catalogItem);
+				methodMapping.setCommandTemplateId(commandTmpl.getId());
+				methodMapping.setMethodName(method.getName());
+
+				final MethodMapping mm = methodMapping;
+
+				AllJoynSupport.matchCommandArgs(commandTmpl, method, new CommandArgMatchProcessor() {
+
+					public void onMatch(String methodArgName, String commandArgName, String methodArgType,
+							DataType commandArgType) {
+
+						ArgMapping argMapping = new ArgMapping();
+						argMapping.setArgName(methodArgName);
+						argMapping.setArgType(methodArgType);
+						argMapping.setCommandArgName(commandArgName);
+						argMapping.setParentMethodMapping(mm);
+
+						mm.getArgs().add(argMapping);
+					}
+
+				});
+
+				break;
+
+			}
+
+			if (methodMapping == null) {
+				LOG.debug("Could not establish mapping for method {}.  No suitable command available.",
+						method.getName());
+			} else {
+				LOG.debug("Established mapping between command template id {} and AJ method {}",
+						methodMapping.getCommandTemplateId(), method.getName());
+				catalogItem.getMethodMappings().add(methodMapping);
+			}
+
+		}
+
+		// TODO add signal mappings
+
+	}
+
+	// private void addArgMappings(MethodMapping methodMapping, AJMethod method,
+	// CommandTemplate commandTmpl) {
+	//
+	// if(method.getArgs() == null) {
+	// LOG.debug("Method {} declares no args.", method.getName());
+	// return;
+	// }
+	//
+	// for(AJArg arg : method.getArgs()) {
+	//
+	// for(CommandArg carg : commandTmpl.getArgs()) {
+	//
+	// if(arg.get)
+	//
+	// }
+	//
+	// }
+	//
+	// }
 
 	private static String marshalInterfaceXml(AJInterface intf) {
 
