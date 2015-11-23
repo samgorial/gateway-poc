@@ -34,7 +34,7 @@ public class GatewayBus {
 	@Value("${alljoyn.blacklisted_interfaces}")
 	private String[] blacklisted;
 
-	@Value("${agent.reset_provisioned_components}")
+	@Value("${debug.reset_provisioned_components}")
 	private boolean resetProvisionedComponents;
 
 	@Autowired

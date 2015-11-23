@@ -88,11 +88,15 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 		DeviceTemplateFilterSpec filter = new DeviceTemplateFilterSpec();
 
-		// Only want active templates.
+		/*
+		 * Search for all active templates. TODO need to narrow this down
+		 * somehow.
+		 */
 		filter.setActive(true);
 
 		List<DeviceTemplate> allTemplates = deviceTemplateClient.search(filter, Page.ALL).checkedGet();
 
+		// Filter all templates down using the matcher.
 		List<DeviceTemplate> filtered = FluentIterable.from(allTemplates).filter(new DeviceTemplateMatcher(intf))
 				.toList();
 
@@ -105,6 +109,7 @@ public class DefaultProvisionerService implements ProvisionerService {
 					filtered.size(), intf.getName());
 		}
 
+		// TODO how to handle multiple template matches better?
 		return filtered.get(0);
 	}
 
@@ -112,10 +117,13 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 		LOG.info("Creating new device template for interface {} with details: \n{}", intf.getName(), intf);
 
+		// Create attribute types, command and event templates based on
+		// AJInterface
 		List<AttributeType> attrTypes = createAttributeTypes(intf.getProperties(), intf.getAboutData());
 		List<CommandTemplate> commandTemplates = createCommandTemplates(intf.getMethods());
 		List<EventTemplate> eventTemplates = createEventTemplates(intf.getSignals());
 
+		// Just to be safe, check for an existing template with the same DNA.
 		DeviceTemplateFilterSpec filter = new DeviceTemplateFilterSpec();
 		filter.setActive(true);
 		filter.setAttributeTypeIds(FluentIterable.from(attrTypes).transform(IdGetter.INSTANCE).toSet());
@@ -125,11 +133,13 @@ public class DefaultProvisionerService implements ProvisionerService {
 		List<DeviceTemplate> existing = deviceTemplateClient.search(filter, Page.ALL).checkedGet();
 
 		if (!existing.isEmpty()) {
+			// If we already found one, just return it.
 			LOG.warn("Already found device template containing attribute types, "
 					+ "events and commands specified in interface {}", intf.getName());
 			return fetchFullDeviceTemplate(existing.get(0).getId());
 		}
 
+		// Create brand new device template.
 		DeviceTemplate template = new DeviceTemplate();
 
 		template.setRealm(realm);
@@ -145,6 +155,7 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 		DeviceTemplate created = deviceTemplateClient.add(template).checkedGet();
 
+		// Activate and tag it.
 		deviceTemplateClient.activateDeviceTemplate(created.getId()).checkedGet();
 		deviceTemplateClient.tagDeviceTemplate(created.getId(), "Created by " + agentName).checkedGet();
 
@@ -159,49 +170,58 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 	public Device createDevice(String deviceTemplateId, Map<String, Variant> aboutData) {
 
-		LOG.debug("Creating new device.");
+		LOG.debug("Creating new device based on template {}", deviceTemplateId);
 
+		// Create device instance
 		Device device = deviceClient.createDeviceFromTemplate(deviceTemplateId).checkedGet();
 
+		// Activate it
 		deviceClient.activateDevice(device.getId());
+		deviceClient.tagDevice(device.getId(), "Created by " + agentName).checkedGet();
 
-		LOG.debug("Created and activated device with id {}", device.getId());
+		LOG.debug("Created, activated and tagged device with id {}", device.getId());
 
-		device = deviceClient.get(device.getId(), new FetchOpts().embedAttributeTypes()).checkedGet();
+		FetchOpts fetchWithAttrTypes = new FetchOpts().embedAttributeTypes();
+
+		// Request newly created device along with all attribute type data
+		// nested in it
+		device = deviceClient.get(device.getId(), fetchWithAttrTypes).checkedGet();
 
 		if (aboutData != null) {
 
 			for (AttributeType attrType : device.getStandardAttributeTypes()) {
 
+				String attrTypeId = attrType.getId();
 				String attrTypeName = attrType.getName();
 
 				Variant value = aboutData.get(attrTypeName);
 
 				if (value == null) {
-					LOG.debug("Hmm, no about data variant found for attribute type {} of device {}", attrTypeName,
-							device.getId());
+					LOG.debug(
+							"No {} found for attribute type {} of device {}. "
+									+ "This attribute may not be an 'AboutData' field.",
+							Variant.class.getName(), attrTypeName, device.getId());
 					continue;
 				}
 
 				try {
 					if (attrTypeName.equals("AppId")) {
-						byte[] appId = value.getObject(byte[].class);
-						StringBuilder sb = new StringBuilder();
-						for (byte b : appId) {
-							sb.append(String.format("%02X", b));
-						}
-						device.setStandardAttributeValue(attrTypeName, sb.toString());
+						String appId = getAppId(value);
+						device.setStandardAttributeValue(attrTypeId, appId);
 
 						// Also need to tag with the AppId (it's special)
-						String tag = attrTypeName + ":" + sb.toString();
+						String tag = attrTypeName + ":" + appId;
 						deviceClient.tagDevice(device.getId(), tag).checkedGet();
 						LOG.debug("Tagged device {}: {}", device.getId(), tag);
 
 					} else if (attrTypeName.equals("SupportedLanguages")) {
+						// SupportedLanguages is an array of values, process it
+						// as such.
 						String[] supportedLanguages = value.getObject(String[].class);
-						device.setStandardAttributeValue(attrTypeName, Joiner.on(',').join(supportedLanguages));
+						device.setStandardAttributeValue(attrTypeId, Joiner.on(',').join(supportedLanguages));
 					} else {
-						device.setStandardAttributeValue(attrTypeName, value.getObject(String.class));
+						// Otherwise we have a regular string value.
+						device.setStandardAttributeValue(attrTypeId, value.getObject(String.class));
 					}
 				} catch (BusException e) {
 					LOG.error("Error occurred while appending about data!", e);
@@ -210,13 +230,14 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 			}
 
+			// Now persist all attribute value changes.
 			device = deviceClient.update(device).checkedGet();
 
+		} else {
+			LOG.warn("No AboutData found!  This is most unexpected.");
 		}
 
-		deviceClient.tagDevice(device.getId(), "Created by " + agentName).checkedGet();
-
-		device = deviceClient.get(device.getId(), new FetchOpts().embedAttributeTypes()).checkedGet();
+		device = deviceClient.get(device.getId(), fetchWithAttrTypes).checkedGet();
 
 		LOG.debug("Created device {}", device);
 
@@ -226,36 +247,25 @@ public class DefaultProvisionerService implements ProvisionerService {
 	public Device searchDevices(String deviceTemplateId, Map<String, Variant> aboutData) {
 
 		if (aboutData == null) {
-			LOG.warn("About data was null, no AppId to search on!");
+			LOG.warn("About data was null, no AppId to search on!  Returning null.");
 			return null;
 		}
 
 		Variant value = aboutData.get("AppId");
 
 		if (value == null) {
-			LOG.warn("No AppId to search on!");
+			LOG.warn("No AppId to search on!  Returning null.");
 			return null;
 		}
 
-		StringBuilder sb = new StringBuilder();
+		String appId = getAppId(value);
 
-		try {
-			byte[] appId = value.getObject(byte[].class);
-			for (byte b : appId) {
-				sb.append(String.format("%02X", b));
-			}
-		} catch (BusException e) {
-			LOG.error("Error occurred while appending about data!", e);
-			return null;
-		}
-
-		LOG.debug("Searching for devices that implement template {} and are tagged with {}", deviceTemplateId,
-				sb.toString());
+		LOG.debug("Searching for devices that implement template {} and are tagged with {}", deviceTemplateId, appId);
 
 		DeviceFilterSpec filter = new DeviceFilterSpec();
 		filter.setActive(true);
 		filter.setParentDeviceTemplateIds(deviceTemplateId);
-		filter.addTag(sb.toString());
+		filter.addTag("AppId:" + appId);
 
 		List<Device> matches = deviceClient.search(filter, Page.ALL).checkedGet();
 
@@ -266,11 +276,17 @@ public class DefaultProvisionerService implements ProvisionerService {
 			LOG.warn("Dang, saw multiple matches for the same tagged AppId, this should not be.");
 		}
 
+		// TODO handle this better. Throw exception?
 		return matches.get(0);
 	}
 
 	public void deactivateProvisionedComponents() {
 
+		/*
+		 * Get all active attribute types, event templates, command templates,
+		 * device templates and devices, and deactivate them all. This option is
+		 * only used during early development stages.
+		 */
 		AttributeTypeFilterSpec attrFilter = new AttributeTypeFilterSpec();
 		attrFilter.setActive(true);
 
@@ -316,6 +332,22 @@ public class DefaultProvisionerService implements ProvisionerService {
 			deviceClient.deactivateDevice(device.getId());
 		}
 
+	}
+
+	private static String getAppId(Variant value) {
+		StringBuilder sb = new StringBuilder();
+
+		try {
+			byte[] appId = value.getObject(byte[].class);
+			for (byte b : appId) {
+				sb.append(String.format("%02X", b));
+			}
+		} catch (BusException e) {
+			LOG.error("Error occurred while appending about data!", e);
+			return null;
+		}
+
+		return sb.toString();
 	}
 
 	private DeviceTemplate fetchFullDeviceTemplate(String id) {
@@ -401,6 +433,8 @@ public class DefaultProvisionerService implements ProvisionerService {
 				attrs.add(created);
 			}
 
+		} else {
+			LOG.warn("No AboutData present!  Something's amiss.  Lock your doors.");
 		}
 
 		return attrs;
