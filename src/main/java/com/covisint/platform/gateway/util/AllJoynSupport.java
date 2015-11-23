@@ -15,10 +15,13 @@ import org.slf4j.LoggerFactory;
 
 import com.covisint.platform.device.core.DataType;
 import com.covisint.platform.device.core.commandtemplate.CommandTemplate;
+import com.covisint.platform.device.core.eventtemplate.EventTemplate;
 import com.covisint.platform.gateway.discovery.DefaultProvisionerService.IsInputArg;
-import com.covisint.platform.gateway.domain.alljoyn.AJAnnotation;
-import com.covisint.platform.gateway.domain.alljoyn.AJArg;
-import com.covisint.platform.gateway.domain.alljoyn.AJMethod;
+import com.covisint.platform.gateway.discovery.DefaultProvisionerService.IsOutputArg;
+import com.covisint.platform.gateway.domain.AJAnnotation;
+import com.covisint.platform.gateway.domain.AJArg;
+import com.covisint.platform.gateway.domain.AJMethod;
+import com.covisint.platform.gateway.domain.AJSignal;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
@@ -152,6 +155,26 @@ public class AllJoynSupport {
 		return optional.get();
 	}
 
+	public static EventTemplate getEventTemplateForSignal(AJSignal signal, List<EventTemplate> eventTemplates) {
+		Optional<EventTemplate> optional = FluentIterable.from(eventTemplates)
+				.firstMatch(new Predicate<EventTemplate>() {
+
+					public boolean apply(EventTemplate input) {
+						if (input == null) {
+							return false;
+						}
+						return input.getName().equals(signal.getName());
+					}
+
+				});
+
+		if (!optional.isPresent()) {
+			return null;
+		}
+
+		return optional.get();
+	}
+
 	public static boolean matchCommandArgs(CommandTemplate commandTemplate, AJMethod method,
 			CommandArgMatchProcessor processor) {
 
@@ -209,4 +232,63 @@ public class AllJoynSupport {
 		return true;
 
 	}
+
+	public static boolean matchEventFields(EventTemplate eventTemplate, AJSignal signal,
+			EventFieldMatchProcessor processor) {
+
+		if (signal.getArgs() == null) {
+			// No args, just assume a match.
+			return true;
+		}
+
+		// Count number of signal arguments.
+		List<AJArg> signalArgs = FluentIterable.from(signal.getArgs()).filter(IsOutputArg.INSTANCE).toList();
+
+		// Compare to number of command template arguments.
+		if (eventTemplate.getEventFields().size() != signalArgs.size()) {
+			LOG.warn("OOOPS!  Event template had {} fields but AJ method had {} (outbound).  Skipping event template.",
+					eventTemplate.getEventFields().size(), signalArgs.size());
+			return false;
+		}
+
+		int idx = 0;
+		for (AJArg arg : signalArgs) {
+
+			DataType signalArgType = AllJoynSupport.getDataType(arg.getType());
+			DataType eventFieldType = eventTemplate.getEventFields().get(idx).getDataType();
+
+			if (signalArgType != eventFieldType) {
+				LOG.warn("Shoot, signal and event arg types differ at index {}: {} vs {}", idx, signalArgType,
+						eventFieldType);
+				return false;
+			}
+
+			String signalArgName = "arg" + idx;
+			String eventFieldName = eventTemplate.getEventFields().get(idx).getName();
+
+			if (signal.getAnnotations() != null) {
+				for (AJAnnotation annotation : signal.getAnnotations()) {
+					if (signalArgName.equalsIgnoreCase(annotation.getName())) {
+						signalArgName = annotation.getValue();
+					}
+				}
+			}
+
+			if (!signalArgName.equalsIgnoreCase(eventFieldName)) {
+				LOG.warn("Oh so close!  Signal and event arg names differ at index {}: {} vs {}", idx, signalArgName,
+						eventFieldName);
+				return false;
+			}
+
+			if (processor != null) {
+				processor.onMatch(signalArgName, eventFieldName, arg.getType(), eventFieldType);
+			}
+
+			idx++;
+		}
+
+		return true;
+
+	}
+
 }

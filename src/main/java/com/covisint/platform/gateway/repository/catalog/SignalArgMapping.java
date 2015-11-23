@@ -17,8 +17,8 @@ import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 
 @Entity
-@Table(name = "ARG_MAPPING")
-public class ArgMapping implements Serializable {
+@Table(name = "SIGNAL_ARG_MAPPING")
+public class SignalArgMapping implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
@@ -26,8 +26,8 @@ public class ArgMapping implements Serializable {
 	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumns({
 			@JoinColumn(name = "PARENT_CATALOG_ITEM_ID", referencedColumnName = "PARENT_CATALOG_ITEM_ID", nullable = false),
-			@JoinColumn(name = "PARENT_METHOD_NAME", referencedColumnName = "METHOD_NAME", nullable = false) })
-	private MethodMapping parentMethodMapping;
+			@JoinColumn(name = "PARENT_SIGNAL_NAME", referencedColumnName = "SIGNAL_NAME", nullable = false) })
+	private SignalMapping parentSignalMapping;
 
 	@Id
 	@Column(name = "ARG_NAME")
@@ -36,15 +36,15 @@ public class ArgMapping implements Serializable {
 	@Column(name = "ARG_TYPE")
 	private String argType;
 
-	@Column(name = "COMMAND_ARG_NAME")
-	private String commandArgName;
+	@Column(name = "EVENT_FIELD_NAME")
+	private String eventFieldName;
 
-	public MethodMapping getParentMethodMapping() {
-		return parentMethodMapping;
+	public SignalMapping getParentSignalMapping() {
+		return parentSignalMapping;
 	}
 
-	public void setParentMethodMapping(MethodMapping parentMethodMapping) {
-		this.parentMethodMapping = parentMethodMapping;
+	public void setParentSignalMapping(SignalMapping parentSignalMapping) {
+		this.parentSignalMapping = parentSignalMapping;
 	}
 
 	public String getArgName() {
@@ -63,12 +63,12 @@ public class ArgMapping implements Serializable {
 		this.argType = argType;
 	}
 
-	public String getCommandArgName() {
-		return commandArgName;
+	public String getEventFieldName() {
+		return eventFieldName;
 	}
 
-	public void setCommandArgName(String commandArgName) {
-		this.commandArgName = commandArgName;
+	public void setEventFieldName(String eventFieldName) {
+		this.eventFieldName = eventFieldName;
 	}
 
 	public boolean equals(Object obj) {

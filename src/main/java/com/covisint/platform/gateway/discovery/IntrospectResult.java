@@ -8,7 +8,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 import org.apache.commons.lang.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 
-import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
+import com.covisint.platform.gateway.domain.AJInterface;
 
 @XmlRootElement(name = "node")
 public class IntrospectResult {

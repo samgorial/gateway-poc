@@ -1,4 +1,4 @@
-package com.covisint.platform.gateway.domain.alljoyn;
+package com.covisint.platform.gateway.domain;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;

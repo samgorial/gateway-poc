@@ -1,4 +1,4 @@
-package com.covisint.platform.gateway.domain.alljoyn;
+package com.covisint.platform.gateway.domain;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;

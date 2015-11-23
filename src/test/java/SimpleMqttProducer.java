@@ -13,7 +13,7 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.MqttTopic;
 
-public class SimpleMqttClient implements MqttCallback {
+public class SimpleMqttProducer implements MqttCallback {
 
 	MqttClient myClient;
 	MqttConnectOptions connOpt;
@@ -37,13 +37,13 @@ public class SimpleMqttClient implements MqttCallback {
 	}
 
 	public static void main(String[] args) {
-		SimpleMqttClient smc = new SimpleMqttClient();
+		SimpleMqttProducer smc = new SimpleMqttProducer();
 		smc.runClient();
 	}
 
 	public void runClient() {
 		// setup MQTT Client
-		String clientID = "04A8bdE3BE7B4ACe964C" + "-publisher";
+		String clientID = "04A8bdE3BE7B4ACe964C" + "-producer";
 		connOpt = new MqttConnectOptions();
 
 		connOpt.setCleanSession(true);
@@ -63,17 +63,18 @@ public class SimpleMqttClient implements MqttCallback {
 
 		System.out.println("Connected to " + BROKER_URL);
 
-		String myTopic = "e786d291-e8f0-4e3c-93d5-a261d55c91bd";
+		String myTopic = "1383cf27-f341-4fe7-a382-cd8f407f9a11";
+
 		MqttTopic topic = myClient.getTopic(myTopic);
 
 		JsonObjectBuilder payload = Json.createObjectBuilder();
 
 		payload.add("messageId", UUID.randomUUID().toString());
-		payload.add("deviceId", "e9992d80-10a5-4c6c-8bf0-4ee0b442afa6");
-		payload.add("commandTemplateId", "be92536c-4078-42f6-a28a-ce9b5575f829");
+		payload.add("deviceId", "c14a7961-6d28-427f-b57a-7fc12378f074");
+		payload.add("commandTemplateId", "f77716b4-840c-4c9c-9351-5c3c4fd35731");
 
 		JsonObjectBuilder args = Json.createObjectBuilder();
-		args.add("targetTemp", 85.1);
+		args.add("targetTemp", 2.1);
 
 		payload.add("message", Base64.encodeBase64String(args.build().toString().getBytes()));
 

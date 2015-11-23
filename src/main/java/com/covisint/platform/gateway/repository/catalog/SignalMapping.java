@@ -20,8 +20,8 @@ import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 
 @Entity
-@Table(name = "METHOD_MAPPING")
-public class MethodMapping implements Serializable {
+@Table(name = "SIGNAL_MAPPING")
+public class SignalMapping implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
@@ -31,14 +31,14 @@ public class MethodMapping implements Serializable {
 	private CatalogItem parentCatalogItem;
 
 	@Id
-	@Column(name = "METHOD_NAME")
-	private String methodName;
+	@Column(name = "SIGNAL_NAME")
+	private String signalName;
 
-	@Column(name = "COMMAND_TEMPLATE_ID")
-	private String commandTemplateId;
+	@Column(name = "EVENT_TEMPLATE_ID")
+	private String eventTemplateId;
 
-	@OneToMany(fetch = FetchType.EAGER, mappedBy = "parentMethodMapping", cascade = CascadeType.ALL)
-	private List<MethodArgMapping> args = new ArrayList<>();
+	@OneToMany(fetch = FetchType.EAGER, mappedBy = "parentSignalMapping", cascade = CascadeType.ALL)
+	private List<SignalArgMapping> args = new ArrayList<>();
 
 	public CatalogItem getParentCatalogItem() {
 		return parentCatalogItem;
@@ -48,27 +48,27 @@ public class MethodMapping implements Serializable {
 		this.parentCatalogItem = parentCatalogItem;
 	}
 
-	public String getMethodName() {
-		return methodName;
+	public String getSignalName() {
+		return signalName;
 	}
 
-	public void setMethodName(String methodName) {
-		this.methodName = methodName;
+	public void setSignalName(String signalName) {
+		this.signalName = signalName;
 	}
 
-	public String getCommandTemplateId() {
-		return commandTemplateId;
+	public String getEventTemplateId() {
+		return eventTemplateId;
 	}
 
-	public void setCommandTemplateId(String commandTemplateId) {
-		this.commandTemplateId = commandTemplateId;
+	public void setEventTemplateId(String eventTemplateId) {
+		this.eventTemplateId = eventTemplateId;
 	}
 
-	public List<MethodArgMapping> getArgs() {
+	public List<SignalArgMapping> getArgs() {
 		return args;
 	}
 
-	public void setArgs(List<MethodArgMapping> args) {
+	public void setArgs(List<SignalArgMapping> args) {
 		this.args = args;
 	}
 

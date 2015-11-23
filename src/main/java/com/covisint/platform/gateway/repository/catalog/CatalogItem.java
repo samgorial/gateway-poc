@@ -48,6 +48,9 @@ public class CatalogItem implements Serializable {
 	@OneToMany(fetch = FetchType.EAGER, mappedBy = "parentCatalogItem", cascade = CascadeType.ALL)
 	private List<MethodMapping> methodMappings = new ArrayList<>();
 
+	@OneToMany(fetch = FetchType.EAGER, mappedBy = "parentCatalogItem", cascade = CascadeType.ALL)
+	private List<SignalMapping> signalMappings = new ArrayList<>();
+
 	public int getId() {
 		return id;
 	}
@@ -86,6 +89,14 @@ public class CatalogItem implements Serializable {
 
 	public void setMethodMappings(List<MethodMapping> methodMappings) {
 		this.methodMappings = methodMappings;
+	}
+
+	public List<SignalMapping> getSignalMappings() {
+		return signalMappings;
+	}
+
+	public void setSignalMappings(List<SignalMapping> signalMappings) {
+		this.signalMappings = signalMappings;
 	}
 
 	public boolean equals(Object obj) {

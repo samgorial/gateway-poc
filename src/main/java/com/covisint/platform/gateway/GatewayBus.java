@@ -41,12 +41,12 @@ public class GatewayBus {
 	private AboutListener aboutListener;
 
 	// TODO temporary
-	@Autowired
-	private SignalHandler signalHandler;
+//	@Autowired
+//	private SignalHandler signalHandler;
 
 	// TODO temporary
-	@Autowired
-	private DemoSignalHandler demoSignalHandler;
+//	@Autowired
+//	private DemoSignalHandler demoSignalHandler;
 
 	@Autowired
 	private BusAttachment attachment;
@@ -97,8 +97,8 @@ public class GatewayBus {
 		bus.registerAboutListener(aboutListener);
 
 		// TODO can't do it like this
-		bus.registerSignalHandlers(signalHandler);
-		bus.registerSignalHandlers(demoSignalHandler);
+//		bus.registerSignalHandlers(signalHandler);
+//		bus.registerSignalHandlers(demoSignalHandler);
 
 		LOG.info("Target interfaces passed to who-implements call: {}", Arrays.deepToString(interfaces));
 
@@ -121,15 +121,15 @@ public class GatewayBus {
 	}
 
 	// TODO temporary
-	@Bean
-	private DemoSignalHandler demoSignalHandler() {
-		return new DemoSignalHandler();
-	}
+//	@Bean
+//	private DemoSignalHandler demoSignalHandler() {
+//		return new DemoSignalHandler();
+//	}
 
 	// TODO temporary
-	@Bean
-	private SignalHandler signalHandler() {
-		return new SignalHandler();
-	}
+//	@Bean
+//	private SignalHandler signalHandler() {
+//		return new SignalHandler();
+//	}
 
 }

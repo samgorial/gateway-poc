@@ -18,7 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.covisint.platform.gateway.GatewayBus;
-import com.covisint.platform.gateway.repository.catalog.ArgMapping;
+import com.covisint.platform.gateway.repository.catalog.MethodArgMapping;
 import com.covisint.platform.gateway.repository.catalog.CatalogItem;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.covisint.platform.gateway.repository.catalog.MethodMapping;
@@ -127,7 +127,7 @@ public class ReflectionCommandDelegate implements CommandDelegate {
 
 		LOG.debug("Found target Java method for {}", methodName);
 
-		List<ArgMapping> argMappings = methodMapping.getArgs();
+		List<MethodArgMapping> argMappings = methodMapping.getArgs();
 
 		Object[] args;
 
@@ -138,7 +138,7 @@ public class ReflectionCommandDelegate implements CommandDelegate {
 			LOG.debug("Setting up {} arguments for method {}", argMappings.size(), methodName);
 			args = new Object[argMappings.size()];
 			int i = 0;
-			for (ArgMapping argMapping : argMappings) {
+			for (MethodArgMapping argMapping : argMappings) {
 				String commandArgName = argMapping.getCommandArgName();
 				String argType = argMapping.getArgType();
 				JsonValue jsonValue = commandArgs.get(commandArgName);

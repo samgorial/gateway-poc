@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 
 import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.gateway.GatewayBus;
-import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
+import com.covisint.platform.gateway.domain.AJInterface;
 import com.covisint.platform.gateway.repository.session.AboutSession;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
 import com.google.common.base.Optional;

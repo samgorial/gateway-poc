@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
+import com.covisint.platform.gateway.domain.AJInterface;
 
 @Component
 public class DefaultCatalogRepository implements CatalogRepository {

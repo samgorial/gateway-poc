@@ -6,7 +6,7 @@ import org.alljoyn.bus.Variant;
 
 import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.device.core.devicetemplate.DeviceTemplate;
-import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
+import com.covisint.platform.gateway.domain.AJInterface;
 
 public interface ProvisionerService {
 

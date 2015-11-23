@@ -1,6 +1,7 @@
 package com.covisint.platform.gateway.discovery;
 
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -8,6 +9,7 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 
+import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.Variant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,21 +18,29 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import com.covisint.mock.DemoSignalHandler;
 import com.covisint.platform.device.core.DataType;
 import com.covisint.platform.device.core.commandtemplate.CommandTemplate;
 import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.device.core.devicetemplate.DeviceTemplate;
-import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
-import com.covisint.platform.gateway.domain.alljoyn.AJMethod;
-import com.covisint.platform.gateway.repository.catalog.ArgMapping;
+import com.covisint.platform.device.core.eventtemplate.EventTemplate;
+import com.covisint.platform.gateway.GatewayBus;
+import com.covisint.platform.gateway.domain.AJInterface;
+import com.covisint.platform.gateway.domain.AJMethod;
+import com.covisint.platform.gateway.domain.AJSignal;
+import com.covisint.platform.gateway.mqtt.MqttProducerService;
 import com.covisint.platform.gateway.repository.catalog.CatalogItem;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
+import com.covisint.platform.gateway.repository.catalog.MethodArgMapping;
 import com.covisint.platform.gateway.repository.catalog.MethodMapping;
+import com.covisint.platform.gateway.repository.catalog.SignalArgMapping;
+import com.covisint.platform.gateway.repository.catalog.SignalMapping;
 import com.covisint.platform.gateway.repository.session.AboutSession;
 import com.covisint.platform.gateway.repository.session.SessionEndpoint;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
 import com.covisint.platform.gateway.util.AllJoynSupport;
 import com.covisint.platform.gateway.util.CommandArgMatchProcessor;
+import com.covisint.platform.gateway.util.EventFieldMatchProcessor;
 import com.google.common.base.Optional;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Futures;
@@ -44,6 +54,9 @@ public class DiscoveryService {
 	private static final Logger LOG = LoggerFactory.getLogger(DiscoveryService.class);
 
 	@Autowired
+	private GatewayBus bus;
+
+	@Autowired
 	private CatalogRepository catalogRepository;
 
 	@Autowired
@@ -51,6 +64,9 @@ public class DiscoveryService {
 
 	@Autowired
 	private ProvisionerService provisionerService;
+
+	@Autowired
+	private MqttProducerService eventPublisher;
 
 	@Async("listeningExecutor")
 	public ListenableFuture<Optional<Device>> processInterface(AJInterface intf, AboutSession session, String path) {
@@ -71,7 +87,6 @@ public class DiscoveryService {
 
 		if (catalogItem == null) {
 			matchedDeviceTemplateId = provisionInterface(intf, name);
-			// TODO bind methods?
 		} else {
 			String templateId = catalogItem.getDeviceTemplateId();
 			LOG.debug("Catalog entry exists between device template {} and interface {}.", templateId, name);
@@ -98,9 +113,31 @@ public class DiscoveryService {
 
 		sessionRepository.addSessionEndpoint(session.getSessionId(), endpoint);
 
+		registerBusListeners(intf, device);
+
 		LOG.info("Processing interface {} took {}", name, clock);
 
 		return Futures.immediateFuture(Optional.of(device));
+	}
+
+	private void registerBusListeners(AJInterface intf, Device device) {
+
+		CatalogItem catalogItem = catalogRepository.searchByInterface(intf.getName());
+
+		if (catalogItem.getSignalMappings() != null) {
+			Map<String, String> eventNames = new HashMap<>();
+
+			for (SignalMapping signalMapping : catalogItem.getSignalMappings()) {
+				eventNames.put(signalMapping.getSignalName(), signalMapping.getEventTemplateId());
+			}
+
+			registerListener(device.getId(), eventNames);
+		}
+	}
+
+	private void registerListener(String deviceId, Map<String, String> eventNames) {
+		DemoSignalHandler handler = new DemoSignalHandler(deviceId, eventNames, eventPublisher);
+		bus.getBusAttachment().registerSignalHandlers(handler);
 	}
 
 	private Device provisionDevice(String deviceTemplateId, Map<String, Variant> aboutData) {
@@ -134,6 +171,7 @@ public class DiscoveryService {
 		catalogItem.setIntrospectionXml(marshalInterfaceXml(intf));
 
 		addMethodMappings(catalogItem, intf, deviceTemplate);
+		addSignalMappings(catalogItem, intf, deviceTemplate);
 
 		catalogRepository.createCatalogItem(catalogItem);
 
@@ -168,7 +206,7 @@ public class DiscoveryService {
 					public void onMatch(String methodArgName, String commandArgName, String methodArgType,
 							DataType commandArgType) {
 
-						ArgMapping argMapping = new ArgMapping();
+						MethodArgMapping argMapping = new MethodArgMapping();
 						argMapping.setArgName(methodArgName);
 						argMapping.setArgType(methodArgType);
 						argMapping.setCommandArgName(commandArgName);
@@ -194,29 +232,64 @@ public class DiscoveryService {
 
 		}
 
-		// TODO add signal mappings
-
 	}
 
-	// private void addArgMappings(MethodMapping methodMapping, AJMethod method,
-	// CommandTemplate commandTmpl) {
-	//
-	// if(method.getArgs() == null) {
-	// LOG.debug("Method {} declares no args.", method.getName());
-	// return;
-	// }
-	//
-	// for(AJArg arg : method.getArgs()) {
-	//
-	// for(CommandArg carg : commandTmpl.getArgs()) {
-	//
-	// if(arg.get)
-	//
-	// }
-	//
-	// }
-	//
-	// }
+	private void addSignalMappings(CatalogItem catalogItem, AJInterface intf, DeviceTemplate deviceTemplate) {
+
+		if (intf.getSignals() == null) {
+			return;
+		}
+
+		for (AJSignal signal : intf.getSignals()) {
+
+			SignalMapping signalMapping = null;
+
+			for (EventTemplate eventTmpl : deviceTemplate.getEventTemplates()) {
+
+				if (!eventTmpl.getName().equals(signal.getName())) {
+					continue;
+				}
+
+				signalMapping = new SignalMapping();
+				signalMapping.setParentCatalogItem(catalogItem);
+				signalMapping.setEventTemplateId(eventTmpl.getId());
+				signalMapping.setSignalName(signal.getName());
+
+				final SignalMapping sm = signalMapping;
+
+				AllJoynSupport.matchEventFields(eventTmpl, signal, new EventFieldMatchProcessor() {
+
+					public void onMatch(String signalArgName, String eventFieldName, String signalArgType,
+							DataType eventFieldType) {
+
+						SignalArgMapping argMapping = new SignalArgMapping();
+						argMapping.setArgName(signalArgName);
+						argMapping.setArgType(signalArgType);
+						argMapping.setEventFieldName(eventFieldName);
+						argMapping.setParentSignalMapping(sm);
+
+						sm.getArgs().add(argMapping);
+
+					}
+
+				});
+
+				break;
+
+			}
+
+			if (signalMapping == null) {
+				LOG.debug("Could not establish mapping for signal {}.  No suitable command available.",
+						signal.getName());
+			} else {
+				LOG.debug("Established mapping between event template id {} and AJ signal {}",
+						signalMapping.getEventTemplateId(), signal.getName());
+				catalogItem.getSignalMappings().add(signalMapping);
+			}
+
+		}
+
+	}
 
 	private static String marshalInterfaceXml(AJInterface intf) {
 

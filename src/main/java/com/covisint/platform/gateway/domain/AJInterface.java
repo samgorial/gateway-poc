@@ -1,4 +1,4 @@
-package com.covisint.platform.gateway.domain.alljoyn;
+package com.covisint.platform.gateway.domain;
 
 import java.util.List;
 import java.util.Map;

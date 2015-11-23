@@ -1,6 +1,6 @@
 package com.covisint.platform.gateway.repository.catalog;
 
-import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
+import com.covisint.platform.gateway.domain.AJInterface;
 
 public interface CatalogRepository {
 

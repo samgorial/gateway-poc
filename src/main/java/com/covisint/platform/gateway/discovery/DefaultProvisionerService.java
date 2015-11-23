@@ -34,16 +34,15 @@ import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.device.core.devicetemplate.DeviceTemplate;
 import com.covisint.platform.device.core.eventtemplate.EventField;
 import com.covisint.platform.device.core.eventtemplate.EventTemplate;
-import com.covisint.platform.gateway.domain.alljoyn.AJAnnotation;
-import com.covisint.platform.gateway.domain.alljoyn.AJArg;
-import com.covisint.platform.gateway.domain.alljoyn.AJInterface;
-import com.covisint.platform.gateway.domain.alljoyn.AJMethod;
-import com.covisint.platform.gateway.domain.alljoyn.AJProperty;
-import com.covisint.platform.gateway.domain.alljoyn.AJSignal;
+import com.covisint.platform.gateway.domain.AJAnnotation;
+import com.covisint.platform.gateway.domain.AJArg;
+import com.covisint.platform.gateway.domain.AJInterface;
+import com.covisint.platform.gateway.domain.AJMethod;
+import com.covisint.platform.gateway.domain.AJProperty;
+import com.covisint.platform.gateway.domain.AJSignal;
 import com.covisint.platform.gateway.util.AllJoynSupport;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 
@@ -666,71 +665,19 @@ public class DefaultProvisionerService implements ProvisionerService {
 						continue;
 					}
 
-					Optional<EventTemplate> optional = FluentIterable.from(eventTemplates)
-							.firstMatch(new Predicate<EventTemplate>() {
+					EventTemplate eventTemplate = AllJoynSupport.getEventTemplateForSignal(signal, eventTemplates);
 
-								public boolean apply(EventTemplate input) {
-									if (input == null) {
-										return false;
-									}
-									return input.getName().equals(signalName);
-								}
-
-							});
-
-					if (!optional.isPresent()) {
+					if (eventTemplate == null) {
 						LOG.warn("Uh Ooooh, did not find any event template with name {}", signalName);
 						continue;
 					}
 
-					EventTemplate eventTemplate = optional.get();
+					boolean result = AllJoynSupport.matchEventFields(eventTemplate, signal, null);
 
-					if (signal.getArgs() != null) {
-
-						// Count number of signal arguments.
-						List<AJArg> signalArgs = FluentIterable.from(signal.getArgs()).filter(IsOutputArg.INSTANCE)
-								.toList();
-
-						// Compare to number of event template arguments.
-						if (eventTemplate.getEventFields().size() != signalArgs.size()) {
-							LOG.warn(
-									"OOOPS!  Event template had {} fields but signal had {} (outbound).  Skipping event template.",
-									eventTemplate.getEventFields().size(), signalArgs.size());
-							continue;
-						}
-
-						int idx = 0;
-						for (AJArg arg : signalArgs) {
-
-							DataType signalArgType = AllJoynSupport.getDataType(arg.getType());
-							DataType eventFieldType = eventTemplate.getEventFields().get(idx).getDataType();
-
-							if (signalArgType != eventFieldType) {
-								LOG.warn("Shoot, signal and event field types differ at index {}: {} vs {}", idx,
-										signalArgType, eventFieldType);
-								break outerLoop;
-							}
-
-							String signalArgName = "arg" + idx;
-							String eventFieldName = eventTemplate.getEventFields().get(idx).getName();
-
-							if (signal.getAnnotations() != null) {
-								for (AJAnnotation annotation : signal.getAnnotations()) {
-									if (signalArgName.equalsIgnoreCase(annotation.getName())) {
-										signalArgName = annotation.getValue();
-									}
-								}
-							}
-
-							if (!signalArgName.equalsIgnoreCase(eventFieldName)) {
-								LOG.warn("Oh so close!  Signal and event field names differ at index {}: {} vs {}", idx,
-										signalArgName, eventFieldName);
-								break outerLoop;
-							}
-
-							idx++;
-						}
-
+					if (result == true) {
+						matchCount++;
+					} else {
+						break outerLoop;
 					}
 
 					matchCount++;
