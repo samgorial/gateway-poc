@@ -14,6 +14,8 @@ import com.covisint.platform.device.client.devicetemplate.DeviceTemplateSDK;
 import com.covisint.platform.device.client.devicetemplate.DeviceTemplateSDK.DeviceTemplateClient;
 import com.covisint.platform.device.client.eventtemplate.EventTemplateSDK;
 import com.covisint.platform.device.client.eventtemplate.EventTemplateSDK.EventTemplateClient;
+import com.covisint.platform.eventSource.client.eventSource.EventSourceSDK;
+import com.covisint.platform.eventSource.client.eventSource.EventSourceSDK.EventSourceClient;
 import com.covisint.platform.messaging.stream.client.sdk.StreamDeviceSDK;
 import com.covisint.platform.messaging.stream.client.sdk.StreamDeviceSDK.StreamDeviceClient;
 
@@ -37,6 +39,9 @@ public final class HttpClientFactory {
 
 	@Value("${http.stream_device_service_url}")
 	private String streamDeviceServiceBaseUrl;
+
+	@Value("${http.event_source_service_url}")
+	private String eventSourceServiceBaseUrl;
 
 	@Bean
 	public AttributeTypeClient attributeTypeClient() {
@@ -66,6 +71,11 @@ public final class HttpClientFactory {
 	@Bean
 	public StreamDeviceClient streamDeviceClient() {
 		return new StreamDeviceSDK(streamDeviceServiceBaseUrl).newClient();
+	}
+
+	@Bean
+	public EventSourceClient eventSourceClient() {
+		return new EventSourceSDK(eventSourceServiceBaseUrl).newClient();
 	}
 
 }

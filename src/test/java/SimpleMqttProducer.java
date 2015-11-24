@@ -1,3 +1,4 @@
+import java.util.Random;
 import java.util.UUID;
 
 import javax.json.Json;
@@ -21,7 +22,8 @@ public class SimpleMqttProducer implements MqttCallback {
 	static final String BROKER_URL = "ssl://mqtt.stg.covapp.io:8883";
 	static final String M2MIO_USERNAME = "e6191e5e-ba48-4ce7-bfe4-212ac3895e43";
 	static final String M2MIO_PASSWORD_MD5 = "4458d6be-13ed-4c0a-afd4-682753a97007";
-
+	static Random r = new Random(System.currentTimeMillis());
+	
 	public void connectionLost(Throwable t) {
 		System.out.println("Connection lost!");
 	}
@@ -67,27 +69,37 @@ public class SimpleMqttProducer implements MqttCallback {
 
 		MqttTopic topic = myClient.getTopic(myTopic);
 
-		JsonObjectBuilder payload = Json.createObjectBuilder();
-
-		payload.add("messageId", UUID.randomUUID().toString());
-		payload.add("deviceId", "c14a7961-6d28-427f-b57a-7fc12378f074");
-		payload.add("commandTemplateId", "f77716b4-840c-4c9c-9351-5c3c4fd35731");
-
-		JsonObjectBuilder args = Json.createObjectBuilder();
-		args.add("targetTemp", 2.1);
-
-		payload.add("message", Base64.encodeBase64String(args.build().toString().getBytes()));
-
-		MqttMessage message = new MqttMessage(payload.build().toString().getBytes());
-		message.setQos(1);
-		message.setRetained(false);
 
 		try {
-			MqttDeliveryToken token = topic.publish(message);
-			token.waitForCompletion();
-			Thread.sleep(100);
 
-			myClient.disconnect();
+			for (;;) {
+
+				JsonObjectBuilder payload = Json.createObjectBuilder();
+
+				payload.add("messageId", UUID.randomUUID().toString());
+				payload.add("deviceId", "301014c2-9385-49fe-a8f2-b93a240a7160");
+//				payload.add("deviceId", "8566a97e-4861-4d4a-9928-69ab75d59f3b");
+				payload.add("eventTemplateId", "332edae6-e0b9-4744-bba9-5e50f2090ab1");
+//				payload.add("eventTemplateId", "cf239b04-0bc1-4c2e-8a4e-d3c1d2d0d4c0");
+
+				JsonObjectBuilder args = Json.createObjectBuilder();
+				args.add("newTemp", (r.nextFloat() * 100) / 10000);
+
+				payload.add("message", Base64.encodeBase64String(args.build().toString().getBytes()));
+
+				payload.add("encodingType", "base64");
+				
+				MqttMessage message = new MqttMessage(payload.build().toString().getBytes());
+				message.setQos(1);
+				message.setRetained(false);
+
+				System.out.println(message);
+				
+				MqttDeliveryToken token = topic.publish(message);
+				token.waitForCompletion();
+				Thread.sleep(1000);
+
+			}
 
 		} catch (Exception e) {
 			e.printStackTrace();

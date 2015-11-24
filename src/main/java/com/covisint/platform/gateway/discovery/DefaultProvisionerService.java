@@ -35,6 +35,8 @@ import com.covisint.platform.device.core.device.Device;
 import com.covisint.platform.device.core.devicetemplate.DeviceTemplate;
 import com.covisint.platform.device.core.eventtemplate.EventField;
 import com.covisint.platform.device.core.eventtemplate.EventTemplate;
+import com.covisint.platform.eventSource.client.eventSource.EventSourceSDK.EventSourceClient;
+import com.covisint.platform.eventSource.core.eventSource.EventSource;
 import com.covisint.platform.gateway.domain.AJAnnotation;
 import com.covisint.platform.gateway.domain.AJArg;
 import com.covisint.platform.gateway.domain.AJInterface;
@@ -63,6 +65,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 	@Value("${agent.stream_id}")
 	private String streamId;
 
+	@Value("${agent.event_source_id}")
+	private String eventSourceId;
+
 	@Value("${alljoyn.property_match_rating_threshold}")
 	private double propertyMatchRatingThreshold;
 
@@ -86,6 +91,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 	@Autowired
 	private DeviceClient deviceClient;
+
+	@Autowired
+	private EventSourceClient eventSourceClient;
 
 	@Autowired
 	private StreamDeviceClient streamDeviceClient;
@@ -192,6 +200,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 		// Now add this device to existing stream.
 		addDeviceToStream(device);
 
+		// Append all new event sources for this device.
+		addNewEventSources(device);
+
 		FetchOpts fetchWithAttrTypes = new FetchOpts().embedAttributeTypes();
 
 		// Request newly created device along with all attribute type data
@@ -253,6 +264,27 @@ public class DefaultProvisionerService implements ProvisionerService {
 		LOG.debug("Created device {}", device);
 
 		return device;
+	}
+
+	private void addNewEventSources(Device device) {
+
+		if (device.getObservableEventIds().isEmpty()) {
+			LOG.debug("Device {} does not have any events.  Nothing to do.");
+			return;
+		}
+
+		EventSource eventSource = eventSourceClient.get(eventSourceId).checkedGet();
+
+		String deviceId = device.getId();
+
+		for (String eventId : device.getObservableEventIds()) {
+			eventSource.addSourceDevice(deviceId, eventId);
+		}
+
+		eventSourceClient.update(eventSource).checkedGet();
+
+		LOG.debug("Updated event source {} with new {} event templates.", eventSourceId,
+				device.getObservableEventIds().size());
 	}
 
 	private void addDeviceToStream(Device device) {
@@ -370,10 +402,10 @@ public class DefaultProvisionerService implements ProvisionerService {
 		for (Device device : activeDevices) {
 			deviceClient.deactivateDevice(device.getId());
 		}
-		
+
 		List<StreamDevice> streamDevices = streamDeviceClient.listStreamDevices(streamId).checkedGet();
-		
-		for(StreamDevice streamDevice : streamDevices) {
+
+		for (StreamDevice streamDevice : streamDevices) {
 			streamDeviceClient.delete(streamId, streamDevice.getDeviceId());
 		}
 

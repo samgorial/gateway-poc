@@ -19,8 +19,8 @@ public class GatewayCommander implements MqttCallback {
 	MqttConnectOptions connOpt;
 
 	static final String BROKER_URL = "ssl://mqtt.stg.covapp.io:8883";
-	static final String M2MIO_USERNAME = "e6191e5e-ba48-4ce7-bfe4-212ac3895e43";
-	static final String M2MIO_PASSWORD_MD5 = "4458d6be-13ed-4c0a-afd4-682753a97007";
+	static final String M2MIO_USERNAME = "b80b3e8f-2e08-4710-a63f-5a74cd324f37";
+	static final String M2MIO_PASSWORD_MD5 = "65e8e8c3-2b2a-4f43-8f75-3d5bcbb1deb4";
 
 	public void connectionLost(Throwable t) {
 		System.out.println("Connection lost!");
@@ -43,7 +43,7 @@ public class GatewayCommander implements MqttCallback {
 
 	public void runClient() {
 		// setup MQTT Client
-		String clientID = "04A8bdE3BE7B4ACe964C" + "-producer";
+		String clientID = "Ad7b8e20285D4D2097a3" + "-producer";
 		connOpt = new MqttConnectOptions();
 
 		connOpt.setCleanSession(true);
@@ -63,7 +63,7 @@ public class GatewayCommander implements MqttCallback {
 
 		System.out.println("Connected to " + BROKER_URL);
 
-		String myTopic = "e786d291-e8f0-4e3c-93d5-a261d55c91bd";
+		String myTopic = "e1baeafb-1cc8-4b1e-9297-de53096e20ea";
 
 		MqttTopic topic = myClient.getTopic(myTopic);
 

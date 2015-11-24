@@ -83,6 +83,18 @@
 		</dependency>
 
 		<dependency>
+			<groupId>com.covisint.platform.eventsource.client</groupId>
+			<artifactId>eventsource-client</artifactId>
+			<version>TRUNK-SNAPSHOT</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>slf4j-log4j12</artifactId>
+					<groupId>org.slf4j</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
 			<groupId>com.covisint.platform.messaging.stream.client</groupId>
 			<artifactId>stream-service-client</artifactId>
 			<version>1.2.0.BUILD-SNAPSHOT</version>
