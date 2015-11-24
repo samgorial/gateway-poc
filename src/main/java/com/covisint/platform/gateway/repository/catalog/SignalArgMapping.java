@@ -30,13 +30,13 @@ public class SignalArgMapping implements Serializable {
 	private SignalMapping parentSignalMapping;
 
 	@Id
-	@Column(name = "ARG_NAME")
+	@Column(name = "ARG_NAME", nullable = false, length = 100)
 	private String argName;
 
-	@Column(name = "ARG_TYPE")
+	@Column(name = "ARG_TYPE", nullable = false, length = 20)
 	private String argType;
 
-	@Column(name = "EVENT_FIELD_NAME")
+	@Column(name = "EVENT_FIELD_NAME", nullable = false, length = 100)
 	private String eventFieldName;
 
 	public SignalMapping getParentSignalMapping() {

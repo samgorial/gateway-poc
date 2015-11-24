@@ -19,13 +19,13 @@ public class BlacklistedInterface implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@Column(name = "INTERFACE")
+	@Column(name = "INTERFACE", nullable = false, length = 150)
 	private String iface;
 
-	@Column(name = "REASON")
+	@Column(name = "REASON", length = 1000)
 	private String reason;
 
-	@Column(name = "BLACKLIST_INSTANT")
+	@Column(name = "BLACKLIST_INSTANT", nullable = false)
 	private Long blacklistInstant;
 
 	public String getIface() {

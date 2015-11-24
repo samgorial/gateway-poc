@@ -29,14 +29,11 @@ public class AboutSession implements Serializable {
 	@Column(name = "SESSION_ID")
 	private int sessionId;
 
-	@Column(name = "BUS_NAME")
+	@Column(name = "BUS_NAME", nullable = false, length = 50)
 	private String busName;
 
 	@Column(name = "TRANSPORT")
 	private short transport;
-
-	@Column(name = "NAME_PREFIX")
-	private String namePrefix;
 
 	@Column(name = "PORT")
 	private short port;
@@ -69,14 +66,6 @@ public class AboutSession implements Serializable {
 
 	public void setTransport(short transport) {
 		this.transport = transport;
-	}
-
-	public String getNamePrefix() {
-		return namePrefix;
-	}
-
-	public void setNamePrefix(String namePrefix) {
-		this.namePrefix = namePrefix;
 	}
 
 	public short getPort() {

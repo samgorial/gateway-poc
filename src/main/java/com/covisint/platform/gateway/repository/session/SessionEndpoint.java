@@ -30,17 +30,17 @@ public class SessionEndpoint implements Serializable {
 	private AboutSession parentSession;
 
 	@Id
-	@Column(name = "INTERFACE")
+	@Column(name = "INTERFACE", nullable = false, length = 150)
 	private String intf;
 
 	@Id
-	@Column(name = "PATH")
+	@Column(name = "PATH", nullable = false, length = 150)
 	private String path;
 
-	@Column(name = "DEVICE_TEMPLATE_ID")
+	@Column(name = "DEVICE_TEMPLATE_ID", length = 64)
 	private String deviceTemplateId;
 
-	@Column(name = "DEVICE_ID")
+	@Column(name = "DEVICE_ID", length = 64)
 	private String deviceId;
 
 	public AboutSession getParentSession() {

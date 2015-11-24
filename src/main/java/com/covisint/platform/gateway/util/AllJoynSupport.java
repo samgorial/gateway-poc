@@ -135,7 +135,7 @@ public class AllJoynSupport {
 
 	}
 
-	public static CommandTemplate getCommandTemplateForMethod(AJMethod method, List<CommandTemplate> commandTemplates) {
+	public static CommandTemplate getCommandTemplateForMethod(final AJMethod method, List<CommandTemplate> commandTemplates) {
 		Optional<CommandTemplate> optional = FluentIterable.from(commandTemplates)
 				.firstMatch(new Predicate<CommandTemplate>() {
 
@@ -155,7 +155,7 @@ public class AllJoynSupport {
 		return optional.get();
 	}
 
-	public static EventTemplate getEventTemplateForSignal(AJSignal signal, List<EventTemplate> eventTemplates) {
+	public static EventTemplate getEventTemplateForSignal(final AJSignal signal, List<EventTemplate> eventTemplates) {
 		Optional<EventTemplate> optional = FluentIterable.from(eventTemplates)
 				.firstMatch(new Predicate<EventTemplate>() {
 

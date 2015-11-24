@@ -9,7 +9,6 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 
-import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.Variant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

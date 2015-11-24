@@ -35,10 +35,10 @@ public class CatalogItem implements Serializable {
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	private int id;
 
-	@Column(name = "INTERFACE")
+	@Column(name = "INTERFACE", nullable = false, length = 150)
 	private String iface;
 
-	@Column(name = "DEVICE_TEMPLATE_ID")
+	@Column(name = "DEVICE_TEMPLATE_ID", nullable = false, length = 64)
 	private String deviceTemplateId;
 
 	@Column(name = "INTROSPECTION_XML")

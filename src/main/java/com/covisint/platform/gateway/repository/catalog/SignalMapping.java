@@ -31,10 +31,10 @@ public class SignalMapping implements Serializable {
 	private CatalogItem parentCatalogItem;
 
 	@Id
-	@Column(name = "SIGNAL_NAME")
+	@Column(name = "SIGNAL_NAME", nullable = false, length = 100)
 	private String signalName;
 
-	@Column(name = "EVENT_TEMPLATE_ID")
+	@Column(name = "EVENT_TEMPLATE_ID", nullable = false, length = 64)
 	private String eventTemplateId;
 
 	@OneToMany(fetch = FetchType.EAGER, mappedBy = "parentSignalMapping", cascade = CascadeType.ALL)

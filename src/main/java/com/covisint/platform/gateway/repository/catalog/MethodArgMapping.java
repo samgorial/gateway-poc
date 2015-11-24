@@ -30,13 +30,13 @@ public class MethodArgMapping implements Serializable {
 	private MethodMapping parentMethodMapping;
 
 	@Id
-	@Column(name = "ARG_NAME")
+	@Column(name = "ARG_NAME", nullable = false, length = 100)
 	private String argName;
 
-	@Column(name = "ARG_TYPE")
+	@Column(name = "ARG_TYPE", nullable = false, length = 20)
 	private String argType;
 
-	@Column(name = "COMMAND_ARG_NAME")
+	@Column(name = "COMMAND_ARG_NAME", nullable = false, length = 100)
 	private String commandArgName;
 
 	public MethodMapping getParentMethodMapping() {

@@ -15,8 +15,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
-import com.covisint.mock.DemoSignalHandler;
-import com.covisint.mock.SignalHandler;
 import com.covisint.platform.gateway.discovery.ProvisionerService;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
 import com.covisint.platform.gateway.repository.session.SessionRepository;
@@ -39,14 +37,6 @@ public class GatewayBus {
 
 	@Autowired
 	private AboutListener aboutListener;
-
-	// TODO temporary
-//	@Autowired
-//	private SignalHandler signalHandler;
-
-	// TODO temporary
-//	@Autowired
-//	private DemoSignalHandler demoSignalHandler;
 
 	@Autowired
 	private BusAttachment attachment;
@@ -96,10 +86,6 @@ public class GatewayBus {
 		// Register the About announcement listener.
 		bus.registerAboutListener(aboutListener);
 
-		// TODO can't do it like this
-//		bus.registerSignalHandlers(signalHandler);
-//		bus.registerSignalHandlers(demoSignalHandler);
-
 		LOG.info("Target interfaces passed to who-implements call: {}", Arrays.deepToString(interfaces));
 
 		if (interfaces.length == 0 || "*".equals(interfaces[0])) {
@@ -119,17 +105,5 @@ public class GatewayBus {
 	public BusAttachment getBusAttachment() {
 		return attachment;
 	}
-
-	// TODO temporary
-//	@Bean
-//	private DemoSignalHandler demoSignalHandler() {
-//		return new DemoSignalHandler();
-//	}
-
-	// TODO temporary
-//	@Bean
-//	private SignalHandler signalHandler() {
-//		return new SignalHandler();
-//	}
 
 }

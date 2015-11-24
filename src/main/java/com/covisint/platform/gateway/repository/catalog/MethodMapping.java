@@ -31,10 +31,10 @@ public class MethodMapping implements Serializable {
 	private CatalogItem parentCatalogItem;
 
 	@Id
-	@Column(name = "METHOD_NAME")
+	@Column(name = "METHOD_NAME", nullable = false, length = 100)
 	private String methodName;
 
-	@Column(name = "COMMAND_TEMPLATE_ID")
+	@Column(name = "COMMAND_TEMPLATE_ID", nullable = false, length = 64)
 	private String commandTemplateId;
 
 	@OneToMany(fetch = FetchType.EAGER, mappedBy = "parentMethodMapping", cascade = CascadeType.ALL)

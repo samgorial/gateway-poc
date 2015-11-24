@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import com.covisint.core.http.service.core.InternationalString;
 import com.covisint.core.http.service.core.Page;
 import com.covisint.core.http.service.core.Resource;
+import com.covisint.core.http.service.core.ServiceException;
 import com.covisint.platform.device.client.FetchOpts;
 import com.covisint.platform.device.client.attributetype.AttributeTypeSDK.AttributeTypeClient;
 import com.covisint.platform.device.client.attributetype.AttributeTypeSDK.AttributeTypeClient.AttributeTypeFilterSpec;
@@ -41,6 +42,8 @@ import com.covisint.platform.gateway.domain.AJMethod;
 import com.covisint.platform.gateway.domain.AJProperty;
 import com.covisint.platform.gateway.domain.AJSignal;
 import com.covisint.platform.gateway.util.AllJoynSupport;
+import com.covisint.platform.messaging.stream.client.sdk.StreamDeviceSDK.StreamDeviceClient;
+import com.covisint.platform.messaging.stream.core.stream.device.StreamDevice;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -56,6 +59,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 	@Value("${agent.realm}")
 	private String realm;
+
+	@Value("${agent.stream_id}")
+	private String streamId;
 
 	@Value("${alljoyn.property_match_rating_threshold}")
 	private double propertyMatchRatingThreshold;
@@ -80,6 +86,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 	@Autowired
 	private DeviceClient deviceClient;
+
+	@Autowired
+	private StreamDeviceClient streamDeviceClient;
 
 	public DeviceTemplate searchDeviceTemplates(AJInterface intf) {
 
@@ -180,6 +189,9 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 		LOG.debug("Created, activated and tagged device with id {}", device.getId());
 
+		// Now add this device to existing stream.
+		addDeviceToStream(device);
+
 		FetchOpts fetchWithAttrTypes = new FetchOpts().embedAttributeTypes();
 
 		// Request newly created device along with all attribute type data
@@ -241,6 +253,34 @@ public class DefaultProvisionerService implements ProvisionerService {
 		LOG.debug("Created device {}", device);
 
 		return device;
+	}
+
+	private void addDeviceToStream(Device device) {
+
+		StreamDevice streamDevice = null;
+
+		try {
+			streamDevice = streamDeviceClient.get(streamId, device.getId()).checkedGet();
+		} catch (ServiceException e) {
+			// Stream device does not exist.
+		}
+
+		if (streamDevice != null) {
+			LOG.debug("Device {} already added to stream {}", device.getId(), streamId);
+			return;
+		}
+
+		streamDevice = new StreamDevice();
+		streamDevice.setRealm(realm);
+		streamDevice.setCreator(agentName);
+		streamDevice.setCreatorApplicationId(agentName);
+		streamDevice.setCreationInstant(System.currentTimeMillis());
+		streamDevice.setStreamId(streamId);
+		streamDevice.setDeviceId(device.getId());
+
+		streamDeviceClient.add(streamId, streamDevice).checkedGet();
+
+		LOG.debug("Added device {} to stream {}", device.getId(), streamId);
 	}
 
 	public Device searchDevices(String deviceTemplateId, Map<String, Variant> aboutData) {
@@ -329,6 +369,12 @@ public class DefaultProvisionerService implements ProvisionerService {
 
 		for (Device device : activeDevices) {
 			deviceClient.deactivateDevice(device.getId());
+		}
+		
+		List<StreamDevice> streamDevices = streamDeviceClient.listStreamDevices(streamId).checkedGet();
+		
+		for(StreamDevice streamDevice : streamDevices) {
+			streamDeviceClient.delete(streamId, streamDevice.getDeviceId());
 		}
 
 	}

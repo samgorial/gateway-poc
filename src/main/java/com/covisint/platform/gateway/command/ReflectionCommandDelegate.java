@@ -18,9 +18,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.covisint.platform.gateway.GatewayBus;
-import com.covisint.platform.gateway.repository.catalog.MethodArgMapping;
 import com.covisint.platform.gateway.repository.catalog.CatalogItem;
 import com.covisint.platform.gateway.repository.catalog.CatalogRepository;
+import com.covisint.platform.gateway.repository.catalog.MethodArgMapping;
 import com.covisint.platform.gateway.repository.catalog.MethodMapping;
 import com.covisint.platform.gateway.repository.session.AboutSession;
 import com.covisint.platform.gateway.repository.session.SessionEndpoint;
@@ -169,50 +169,6 @@ public class ReflectionCommandDelegate implements CommandDelegate {
 
 		LOG.debug("Successfully invoked remote method.");
 
-		// try {
-		//
-		// switch (commandTemplateId) {
-		// case "ping":
-		// Class<?> someItfc = null;
-		// try {
-		// someItfc = Class.forName("blah");
-		// } catch (ClassNotFoundException e) {
-		// // TODO Auto-generated catch block
-		// e.printStackTrace();
-		// }
-		// Object o = getProxy(deviceId, busName, endpoint.getPath(),
-		// sessionId).getInterface(someItfc);
-		//
-		// getProxy(deviceId, busName, endpoint.getPath(),
-		// sessionId).getInterface(PingInterface.class)
-		// .ping(new Date().toString());
-		// break;
-		// case "hello":
-		// if (!commandArgs.containsKey("name")) {
-		// throw new IllegalArgumentException("Expected parameter 'name'");
-		// }
-		// getProxy(deviceId, busName, endpoint.getPath(),
-		// sessionId).getInterface(SayHelloInterface.class)
-		// .hello(commandArgs.getString("name"));
-		// break;
-		// case "turn_on_buzzer":
-		// getProxy(deviceId, busName, endpoint.getPath(),
-		// sessionId).getInterface(DemoInterface.class)
-		// .turnOnBuzzer();
-		// break;
-		// case "turn_off_buzzer":
-		// getProxy(deviceId, busName, endpoint.getPath(),
-		// sessionId).getInterface(DemoInterface.class)
-		// .turnOffBuzzer();
-		// break;
-		// default:
-		// throw new UnsupportedOperationException(commandTemplateId);
-		// }
-		//
-		// } catch (BusException e) {
-		// throw new RuntimeException(e);
-		// }
-
 	}
 
 	private MethodMapping getMethodMapping(String commandTemplateId, CatalogItem catalogItem) {
@@ -226,21 +182,6 @@ public class ReflectionCommandDelegate implements CommandDelegate {
 		throw new IllegalArgumentException("Unknown operation specified by command template id " + commandTemplateId
 				+ ". No MethodMapping found.");
 	}
-
-	// private ProxyBusObject getProxy(String deviceId, String busName, String
-	// path, int sessionId) {
-	//
-	// switch (deviceId) {
-	// case "c963ba8bae3a":
-	// return bus.getBusAttachment().getProxyBusObject(busName, path, sessionId,
-	// new Class<?>[] { DemoInterface.class });
-	// default:
-	// return bus.getBusAttachment().getProxyBusObject(busName, path, sessionId,
-	// new Class<?>[] { PiBusInterface.class, PingInterface.class,
-	// SayHelloInterface.class });
-	// }
-	//
-	// }
 
 	private JsonObject readArgs(JsonObject command) {
 
