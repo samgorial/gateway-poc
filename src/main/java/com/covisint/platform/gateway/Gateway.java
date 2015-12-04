@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @EnableAsync
 @ComponentScan(basePackages = { "com.covisint.platform.gateway" })
-// @EnableAspectJAutoProxy
 public class Gateway {
 
 	static {
