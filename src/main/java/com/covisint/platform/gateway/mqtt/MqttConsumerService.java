@@ -45,6 +45,7 @@ public class MqttConsumerService extends BaseMqttService {
 		DefaultMqttPahoClientFactory clientFactory = new DefaultMqttPahoClientFactory();
 		clientFactory.setUserName(username);
 		clientFactory.setPassword(password);
+		clientFactory.setPersistence(clientPersistence());
 
 		MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter(url,
 				clientId + "-" + qualifier, clientFactory, consumerTopic);

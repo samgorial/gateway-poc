@@ -2,6 +2,8 @@ package com.covisint.platform.gateway.mqtt;
 
 import java.util.Random;
 
+import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
+import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 import org.springframework.beans.factory.annotation.Value;
 
 abstract class BaseMqttService {
@@ -31,5 +33,10 @@ abstract class BaseMqttService {
 	protected int defaultQos;
 
 	protected long qualifier = new Random(System.currentTimeMillis()).nextLong();
+
+	protected static MqttClientPersistence clientPersistence() {
+		String tmpDir = System.getProperty("java.io.tmpdir");
+		return new MqttDefaultFilePersistence(tmpDir);
+	}
 
 }

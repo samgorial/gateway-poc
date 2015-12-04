@@ -2,12 +2,10 @@ package com.covisint.platform.gateway.mqtt;
 
 import java.util.UUID;
 
-import javax.annotation.PreDestroy;
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 
-import org.apache.commons.codec.binary.Base64;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -22,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
+import com.google.api.client.util.Base64;
 import com.google.common.base.Stopwatch;
 
 @Component
@@ -30,37 +29,48 @@ public class MqttProducerService extends BaseMqttService implements MqttCallback
 	private static final Logger LOG = LoggerFactory.getLogger(MqttProducerService.class);
 
 	@Autowired
-	private MqttClient client;
-
-	@PreDestroy
-	public void shutdown() {
-		if (client != null) {
-			try {
-				client.disconnect();
-				client.close();
-			} catch (MqttException e) {
-				LOG.error("Error occurred while closing client.", e);
-			}
-		}
-	}
+	private MqttClient mqttClient;
 
 	public void connectionLost(Throwable t) {
-		LOG.error("Connection lost.", t);
+		LOG.debug("Connection lost: {}", t.getMessage(), t);
 	}
 
 	public void deliveryComplete(IMqttDeliveryToken token) {
-		LOG.debug("Delivery complete: {}", token.toString());
 	}
 
 	public void messageArrived(String topicName, MqttMessage message) throws Exception {
-		LOG.debug("Message arrived for topic {}: {}", topicName, new String(message.getPayload()));
+	}
+
+	@Bean
+	public MqttClient mqttClient() {
+		MqttConnectOptions connOpt = new MqttConnectOptions();
+
+		connOpt.setCleanSession(true);
+		connOpt.setKeepAliveInterval(30);
+		connOpt.setUserName(username);
+		connOpt.setPassword(password.toCharArray());
+
+		MqttClient client;
+
+		try {
+			client = new MqttClient(url, clientId + "-" + qualifier, clientPersistence());
+//			client = new MqttClient(url, clientId + "-" + qualifier);
+			client.setCallback(this);
+			client.connect(connOpt);
+		} catch (MqttException e) {
+			throw new ExceptionInInitializerError(e);
+		}
+
+		LOG.debug("Connected to broker {} with client id {}", url, client.getClientId());
+
+		return client;
 	}
 
 	public void publishMessage(String deviceId, String eventTemplateId, JsonObject args) throws Exception {
 
 		Stopwatch watch = Stopwatch.createStarted();
 
-		MqttTopic topic = client.getTopic(producerTopic);
+		MqttTopic topic = mqttClient.getTopic(producerTopic);
 
 		JsonObjectBuilder payload = Json.createObjectBuilder();
 
@@ -68,8 +78,13 @@ public class MqttProducerService extends BaseMqttService implements MqttCallback
 		payload.add("deviceId", deviceId);
 		payload.add("eventTemplateId", eventTemplateId);
 		payload.add("message", Base64.encodeBase64String(args.toString().getBytes()));
+		payload.add("encodingType", "base64");
 
-		MqttMessage message = new MqttMessage(payload.build().toString().getBytes());
+		String payloadString = payload.build().toString();
+
+		LOG.debug("Payload being sent: {}", payloadString);
+
+		MqttMessage message = new MqttMessage(payloadString.getBytes());
 		message.setQos(defaultQos);
 		message.setRetained(false);
 
@@ -78,29 +93,5 @@ public class MqttProducerService extends BaseMqttService implements MqttCallback
 		token.waitForCompletion();
 
 		LOG.debug("Published message for event template {} and device {} in {}", eventTemplateId, deviceId, watch);
-	}
-
-	@Bean
-	private MqttClient getMqttClient() {
-		try {
-			MqttClient c = new MqttClient(url, clientId);
-
-			c.setCallback(this);
-			
-			MqttConnectOptions connectOpts = new MqttConnectOptions();
-
-			connectOpts.setCleanSession(true);
-			connectOpts.setKeepAliveInterval(30);
-			connectOpts.setUserName(username);
-			connectOpts.setPassword(password.toCharArray());
-
-			c.connect(connectOpts);
-
-			LOG.debug("Connected to MQTT broker at {} with client id {}", url, clientId);
-
-			return c;
-		} catch (MqttException e) {
-			throw new RuntimeException(e);
-		}
 	}
 }
